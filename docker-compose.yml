@@ -25,8 +25,8 @@ services:
       - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
       - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT}
       - CLIENT_URL=${CLIENT_URL:-http://localhost}
-    ports:
-      - "${SERVER_PORT:-8000}:8000"
+    expose:
+      - "8000"
     networks:
       - netflix-network
 
