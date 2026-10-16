@@ -35,12 +35,12 @@ export const ENV_VARS = {
   CLIENT_PORT: process.env.CLIENT_PORT || 5173,
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
 
-  // AWS RDS MySQL Database configuration
+  // AWS RDS / Aurora PostgreSQL Database configuration
   DB_HOST: process.env.DB_HOST || 'localhost',
-  DB_PORT: Number(process.env.DB_PORT) || 3306,
-  DB_USER: process.env.DB_USER || 'root',
+  DB_PORT: Number(process.env.DB_PORT) || 5432,
+  DB_USER: process.env.DB_USER || 'postgres',
   DB_PASSWORD: process.env.DB_PASSWORD || '',
-  DB_NAME: process.env.DB_NAME || 'netflix_db',
+  DB_NAME: process.env.DB_NAME || 'postgres',
   DB_SSL: process.env.DB_SSL === 'true',
 
   // JWT configuration

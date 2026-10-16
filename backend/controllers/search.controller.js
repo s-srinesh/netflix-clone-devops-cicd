@@ -2,7 +2,7 @@ import { fetchFromTMDB } from '../services/tmdb.service.js';
 import SearchHistory from '../models/searchHistory.model.js';
 
 /**
- * Saves search results to the user's profile in MySQL database.
+ * Saves search results to the user's profile in PostgreSQL database.
  *
  * @param {string} type - The type of search ('person', 'movie', 'tv').
  * @param {number|string} userId - The ID of the user performing the search.

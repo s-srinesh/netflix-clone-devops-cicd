@@ -1,19 +1,23 @@
-import mysql from 'mysql2/promise';
 import { Sequelize } from 'sequelize';
+import pg from 'pg';
 import { ENV_VARS } from './env.config.js';
 import { getCurrentDateTime } from '../helpers/helper.js';
 
 const { DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL } = ENV_VARS;
 
-const sslOptions = DB_SSL ? { rejectUnauthorized: false } : undefined;
+// Configure SSL for AWS Aurora / RDS PostgreSQL
+const sslOptions = DB_SSL
+  ? { require: true, rejectUnauthorized: false }
+  : false;
 
 /**
- * Sequelize instance for AWS RDS MySQL connection.
+ * Sequelize instance configured for AWS Aurora / RDS PostgreSQL.
  */
 export const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
   host: DB_HOST,
-  port: DB_PORT,
-  dialect: 'mysql',
+  port: DB_PORT || 5432,
+  dialect: 'postgres',
+  dialectModule: pg,
   logging: false,
   dialectOptions: sslOptions ? { ssl: sslOptions } : {},
   pool: {
@@ -25,39 +29,23 @@ export const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
 });
 
 /**
- * Connects to the AWS RDS MySQL database and synchronizes all models.
- * Automatically ensures the database schema exists on the MySQL server.
+ * Connects to AWS Aurora / RDS PostgreSQL and synchronizes all tables.
  */
 export const connectDB = async () => {
   try {
-    // 1. Ensure target database exists on MySQL server
-    try {
-      const connection = await mysql.createConnection({
-        host: DB_HOST,
-        port: DB_PORT,
-        user: DB_USER,
-        password: DB_PASSWORD,
-        ssl: sslOptions,
-      });
-      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;`);
-      await connection.end();
-    } catch (dbInitErr) {
-      // In some managed environments (e.g. restricted RDS user), CREATE DATABASE may be restricted
-      // Proceed to authenticate directly to the existing DB
-      console.warn(`Database creation check skipped: ${dbInitErr.message}`);
-    }
-
-    // 2. Authenticate Sequelize connection
+    // 1. Authenticate PostgreSQL connection
     await sequelize.authenticate();
     console.log(
-      `MySQL RDS connection established successfully at ${getCurrentDateTime()} (${DB_HOST}:${DB_PORT}/${DB_NAME})`
+      `PostgreSQL RDS connection established successfully at ${getCurrentDateTime()} (${DB_HOST}:${DB_PORT || 5432}/${DB_NAME})`
     );
 
-    // 3. Sync all models with database schema
+    // 2. Sync all models with PostgreSQL database schema
     await sequelize.sync();
-    console.log('MySQL Database tables synchronized successfully.');
+    console.log('PostgreSQL Database tables synchronized successfully.');
   } catch (error) {
-    console.error(`\n❌ Error connecting to MySQL Database: ${error.message}`);
-    console.error('👉 Tip: Check your AWS RDS endpoint or local MySQL password in .env (DB_HOST, DB_USER, DB_PASSWORD)\n');
+    console.error(`\n❌ Error connecting to PostgreSQL Database: ${error.message}`);
+    console.error(
+      '👉 Tip: Check your AWS RDS PostgreSQL endpoint or credentials in .env (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)\n'
+    );
   }
 };

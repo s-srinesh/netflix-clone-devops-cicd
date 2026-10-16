@@ -5,7 +5,7 @@ import { generateProfilePicture, hashPassword } from '../helpers/helper.js';
 import SearchHistory from './searchHistory.model.js';
 
 /**
- * Sequelize User Model for MySQL (AWS RDS).
+ * Sequelize User Model for PostgreSQL (AWS Aurora / RDS).
  */
 export const User = sequelize.define(
   'User',

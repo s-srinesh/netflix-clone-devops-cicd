@@ -16,11 +16,11 @@ services:
       - NODE_ENV=production
       - SERVER_PORT=8000
       - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_USER=${DB_USER}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME:-netflix_db}
-      - DB_SSL=${DB_SSL:-false}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_SSL=${DB_SSL:-true}
       - JWT_SECRET=${JWT_SECRET}
       - TMDB_API_KEY=${TMDB_API_KEY}
       - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
