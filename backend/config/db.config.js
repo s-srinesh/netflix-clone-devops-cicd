@@ -57,7 +57,7 @@ export const connectDB = async () => {
     await sequelize.sync();
     console.log('MySQL Database tables synchronized successfully.');
   } catch (error) {
-    console.error(`Error connecting to MySQL RDS Database: ${error.message}`);
-    throw error;
+    console.error(`\n❌ Error connecting to MySQL Database: ${error.message}`);
+    console.error('👉 Tip: Check your AWS RDS endpoint or local MySQL password in .env (DB_HOST, DB_USER, DB_PASSWORD)\n');
   }
 };

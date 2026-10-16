@@ -80,7 +80,14 @@ export const signup = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in signup controller', error.message);
-    res.status(500).json({ success: false, message: 'Internal Server Error' });
+    const isDbError =
+      error.name?.includes('Sequelize') ||
+      error.message?.includes('Access denied') ||
+      error.message?.includes('ECONNREFUSED');
+    const message = isDbError
+      ? `Database connection error: ${error.message}. Please check DB_PASSWORD and DB_HOST in your .env file.`
+      : error.message || 'Internal Server Error';
+    res.status(500).json({ success: false, message });
   }
 };
 
@@ -127,7 +134,14 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in login controller', error.message);
-    res.status(500).json({ success: false, message: 'Internal Server Error' });
+    const isDbError =
+      error.name?.includes('Sequelize') ||
+      error.message?.includes('Access denied') ||
+      error.message?.includes('ECONNREFUSED');
+    const message = isDbError
+      ? `Database connection error: ${error.message}. Please check DB_PASSWORD and DB_HOST in your .env file.`
+      : error.message || 'Internal Server Error';
+    res.status(500).json({ success: false, message });
   }
 };
 
