@@ -5,8 +5,11 @@ import toast from 'react-hot-toast';
 // Set axios to send cookies with requests.
 axios.defaults.withCredentials = true;
 
-// Base URL for API requests.
-// const BASE_URL = import.meta.env.MODE === 'development' ? 'http://localhost:8000/api/v1/account' : '/api/v1/account';
+// Initialize token from localStorage if available
+const storedToken = typeof window !== 'undefined' ? localStorage.getItem('netflix_token') : null;
+if (storedToken) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+}
 
 export const useAuthStore = create((set) => ({
   user: null,
@@ -24,9 +27,14 @@ export const useAuthStore = create((set) => ({
     set({ user: null, isSigningUp: true, error: null });
     try {
       const res = await axios.post('/api/v1/account/signup', credentials);
-      set({ user: res.data.user, isSigningUp: false });
+      const user = res.data.user;
+      if (user?.accessToken) {
+        localStorage.setItem('netflix_token', user.accessToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${user.accessToken}`;
+      }
+      set({ user, isSigningUp: false });
     } catch (error) {
-      set({ isSigningUp: false, error: error.response.data.message });
+      set({ isSigningUp: false, error: error.response?.data?.message || 'Signup failed' });
       throw error;
     }
   },
@@ -38,9 +46,14 @@ export const useAuthStore = create((set) => ({
     set({ user: null, isLoggingIn: true, error: null });
     try {
       const res = await axios.post('/api/v1/account/login', credentials);
-      set({ user: res.data.user, isLoggingIn: false });
+      const user = res.data.user;
+      if (user?.accessToken) {
+        localStorage.setItem('netflix_token', user.accessToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${user.accessToken}`;
+      }
+      set({ user, isLoggingIn: false });
     } catch (error) {
-      set({ isLoggingIn: false, error: error.response.data.message });
+      set({ isLoggingIn: false, error: error.response?.data?.message || 'Login failed' });
       throw error;
     }
   },
@@ -55,11 +68,13 @@ export const useAuthStore = create((set) => ({
     set({ isLoggingOut: true });
     try {
       await axios.post('/api/v1/account/logout');
+    } catch (error) {
+      console.warn('Logout API call error:', error.message);
+    } finally {
+      localStorage.removeItem('netflix_token');
+      delete axios.defaults.headers.common['Authorization'];
       set({ user: null, isLoggingOut: false });
       toast.success('Logged out successfully');
-    } catch (error) {
-      set({ isLoggingOut: false });
-      toast.error(error.response.data.message || 'Failed to logout');
     }
   },
 
@@ -72,6 +87,10 @@ export const useAuthStore = create((set) => ({
   checkAuth: async () => {
     set({ user: null, isCheckingAuth: true });
     try {
+      const token = localStorage.getItem('netflix_token');
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
       const res = await axios.get('/api/v1/account/auth');
       set({ user: res.data.user, isCheckingAuth: false });
     } catch (error) {

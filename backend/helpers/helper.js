@@ -83,11 +83,15 @@ export const generateTokenAndSetCookie = (payload, res) => {
   const token = jwt.sign({ payload }, ENV_VARS.JWT_SECRET, { expiresIn: '7d' });
 
   // Set a cookie with the token
+  // Do NOT force secure: true unless COOKIE_SECURE is explicitly true,
+  // because browsers will reject Secure cookies when accessed over HTTP (e.g. EC2 port 8081).
+  const isSecure = process.env.COOKIE_SECURE === 'true';
   let options = {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    httpOnly: true, // secure cookie only accessible via HTTP, prevent XSS attacks cross-site scripting attacks, make it not be accessed by JS
-    secure: ENV_VARS.NODE_ENV === 'production', // secure cookie only accessible over HTTPS (default is development)
-    sameSite: 'strict', // prevent CSRF attacks cross-site request forgery attacks
+    httpOnly: true, // secure cookie only accessible via HTTP, prevent XSS attacks
+    secure: isSecure, // only require HTTPS when explicitly configured
+    sameSite: 'lax', // compatible with reverse proxy and HTTP deployments
+    path: '/',
   };
   res.cookie('netflixToken', token, options);
 

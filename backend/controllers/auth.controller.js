@@ -150,7 +150,7 @@ export const login = async (req, res) => {
  * Handles the logout request by clearing authentication cookie.
  */
 export const logout = async (req, res) => {
-  res.clearCookie('netflixToken');
+  res.clearCookie('netflixToken', { path: '/' });
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 };
 
