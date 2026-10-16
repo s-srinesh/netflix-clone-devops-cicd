@@ -40,7 +40,7 @@ if (cluster.isPrimary) {
   // Initialize and Configures the Express server.
   const app = expressServer();
 
-  // Starts the server and connects to the MongoDB database.
+  // Starts the server and connects to the MySQL RDS database.
   const { PORT, CLIENT_URL } = ENV_VARS;
   app.listen(PORT, () => {
     console.log(`Worker ${process.pid} is up and running on port: ${PORT}`);
