@@ -27,6 +27,13 @@ pipeline {
                         echo "Warning: No .env found. Falling back to .env.example..."
                         cp .env.example .env
                     fi
+
+                    # Configure frontend port to 80
+                    if grep -q "FRONTEND_PORT=" .env; then
+                        sed -i 's/^FRONTEND_PORT=.*/FRONTEND_PORT=80/' .env
+                    else
+                        echo "FRONTEND_PORT=80" >> .env
+                    fi
                 '''
             }
         }
@@ -59,7 +66,7 @@ pipeline {
                     if [ -f .env ]; then
                         export $(grep -v '^#' .env | xargs) || true
                     fi
-                    TARGET_PORT=${FRONTEND_PORT:-8081}
+                    TARGET_PORT=${FRONTEND_PORT:-80}
                     curl -I --fail http://localhost:${TARGET_PORT} || exit 1
                     echo "✅ Frontend is healthy and responding on port ${TARGET_PORT}!"
                 '''
