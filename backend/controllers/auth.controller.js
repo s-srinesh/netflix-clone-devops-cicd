@@ -60,6 +60,7 @@ export const signup = async (req, res) => {
       username,
       email,
       password,
+      isVerified: !ENV_VARS.MAILTRAP_TOKEN,
       verificationToken,
       verificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });

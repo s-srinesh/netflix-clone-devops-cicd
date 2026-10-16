@@ -1,14 +1,15 @@
 import { mailtrapClient, SENDER, EMAIL_TEMPLATE_IDS, EMAIL_TEMPLATE_VARIABLES } from '../config/mailtrap.config.js';
-import { getCurrentDateTime } from '../helpers/helper.js';
 import { ENV_VARS } from '../config/env.config.js';
+import { getCurrentDateTime } from '../helpers/helper.js';
 
 /**
  * Sends a verification email with a verification code to the specified email address.
- * Automatically skips if MAILTRAP_TOKEN is not configured to avoid hanging timeouts.
  */
 export const sendVerificationEmail = async (email, verificationCode) => {
   if (!ENV_VARS.MAILTRAP_TOKEN) {
-    console.log(`[Mailtrap] No MAILTRAP_TOKEN configured. Verification code for ${email} is: ${verificationCode}`);
+    console.log(`\n======================================================`);
+    console.log(`📧 [NO MAILTRAP CONFIGURED] Verification Code for ${email}: ${verificationCode}`);
+    console.log(`======================================================\n`);
     return;
   }
 
@@ -26,7 +27,7 @@ export const sendVerificationEmail = async (email, verificationCode) => {
     });
     console.log('Verification email sent successfully', response);
   } catch (error) {
-    console.error('Error sending verification email', error);
+    console.error('Error sending verification email', error.message);
   }
 };
 
@@ -34,10 +35,7 @@ export const sendVerificationEmail = async (email, verificationCode) => {
  * Sends a welcome email to the specified email address.
  */
 export const sendWelcomeEmail = async (email, name) => {
-  if (!ENV_VARS.MAILTRAP_TOKEN) {
-    console.log(`[Mailtrap] No MAILTRAP_TOKEN configured. Skipping welcome email for ${name} (${email})`);
-    return;
-  }
+  if (!ENV_VARS.MAILTRAP_TOKEN) return;
 
   const recipients = [{ email }];
   try {
@@ -52,7 +50,7 @@ export const sendWelcomeEmail = async (email, name) => {
     });
     console.log('Welcome email sent successfully', response);
   } catch (error) {
-    console.error('Error sending welcome email', error);
+    console.error('Error sending welcome email', error.message);
   }
 };
 
@@ -61,7 +59,7 @@ export const sendWelcomeEmail = async (email, name) => {
  */
 export const sendPasswordResetEmail = async (email, url) => {
   if (!ENV_VARS.MAILTRAP_TOKEN) {
-    console.log(`[Mailtrap] No MAILTRAP_TOKEN configured. Password reset link for ${email} is: ${url}`);
+    console.log(`\n🔑 [NO MAILTRAP CONFIGURED] Password Reset URL for ${email}: ${url}\n`);
     return;
   }
 
@@ -80,7 +78,7 @@ export const sendPasswordResetEmail = async (email, url) => {
     });
     console.log('Password reset email sent successfully', response);
   } catch (error) {
-    console.error('Error sending password reset email', error);
+    console.error('Error sending password reset email', error.message);
   }
 };
 
@@ -88,10 +86,7 @@ export const sendPasswordResetEmail = async (email, url) => {
  * Sends a password reset success email to the specified email address.
  */
 export const sendPasswordResetSuccessEmail = async (email) => {
-  if (!ENV_VARS.MAILTRAP_TOKEN) {
-    console.log(`[Mailtrap] No MAILTRAP_TOKEN configured. Skipping password reset confirmation for ${email}`);
-    return;
-  }
+  if (!ENV_VARS.MAILTRAP_TOKEN) return;
 
   const recipients = [{ email }];
   try {
@@ -105,8 +100,8 @@ export const sendPasswordResetSuccessEmail = async (email) => {
         confirmation_timestamp: getCurrentDateTime(),
       },
     });
-    console.log('Password reset confirmation sent successfully', response);
+    console.log('Password reset confirmation email sent successfully', response);
   } catch (error) {
-    console.error('Error sending password reset confirmation', error);
+    console.error('Error sending password reset confirmation email', error.message);
   }
 };
