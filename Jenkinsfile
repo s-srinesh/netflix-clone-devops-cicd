@@ -2,99 +2,73 @@ pipeline {
     agent any
 
     environment {
-        // Docker Hub / Registry Configurations
-        DOCKER_HUB_CREDENTIALS_ID = 'docker-hub-credentials' // Configure in Jenkins Credentials
-        DOCKER_HUB_USERNAME       = 'srinesh'                // Your Docker Hub username or registry namespace
-        BACKEND_IMAGE             = "${DOCKER_HUB_USERNAME}/netflix-backend"
-        FRONTEND_IMAGE            = "${DOCKER_HUB_USERNAME}/netflix-frontend"
-        IMAGE_TAG                 = "${env.BUILD_NUMBER}"
-
-        // AWS EC2 Deployment Configurations
-        EC2_CREDENTIALS_ID        = 'ec2-ssh-key'            // Jenkins SSH Username with private key credential ID
-        EC2_USER                  = 'ubuntu'                 // Default user for Ubuntu EC2 instances
-        EC2_HOST                  = 'your-ec2-public-ip'     // Replace with your EC2 public IP or domain
-        DEPLOY_DIR                = '/home/ubuntu/netflix-app'
+        APP_NAME    = 'netflix-clone'
+        ENV_FILE    = '/var/www/netflix/.env'
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout Source Code') {
             steps {
-                echo 'Checking out source code from Git repository...'
+                echo 'Pulling latest code from GitHub...'
                 checkout scm
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Prepare Environment (.env)') {
             steps {
-                echo "Building Docker images with tag: ${IMAGE_TAG} and latest..."
-                sh """
-                    # Build Backend Image
-                    docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ./backend
-
-                    # Build Frontend Image
-                    docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ./frontend
-                """
+                echo 'Checking for production .env configuration...'
+                sh '''
+                    if [ -f "$ENV_FILE" ]; then
+                        echo "Loading production .env from $ENV_FILE..."
+                        cp "$ENV_FILE" .env
+                    elif [ -f ".env" ]; then
+                        echo "Using existing .env from workspace..."
+                    else
+                        echo "Warning: No .env found. Falling back to .env.example..."
+                        cp .env.example .env
+                    fi
+                '''
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Deploy with Docker Compose') {
             steps {
-                echo 'Logging in to Docker Registry and pushing images...'
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDENTIALS_ID}", passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                    sh """
-                        echo "\$DOCKER_PASSWORD" | docker login -u "\$DOCKER_USERNAME" --password-stdin
-                        
-                        # Push Backend
-                        docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
-                        docker push ${BACKEND_IMAGE}:latest
+                echo 'Stopping existing containers and building new version...'
+                sh '''
+                    # Stop previous containers if running
+                    docker compose down --remove-orphans || true
 
-                        # Push Frontend
-                        docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                        docker push ${FRONTEND_IMAGE}:latest
-                    """
-                }
+                    # Build and start frontend and backend in detached mode
+                    docker compose up -d --build
+                '''
             }
         }
 
-        stage('Deploy to AWS EC2') {
+        stage('Health Check') {
             steps {
-                echo "Deploying application to AWS EC2 server (${EC2_HOST})..."
-                sshagent(["${EC2_CREDENTIALS_ID}"]) {
-                    sh """
-                        # Create deploy directory on EC2 if it does not exist
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "mkdir -p ${DEPLOY_DIR}"
+                echo 'Verifying application health...'
+                sh '''
+                    # Wait 5 seconds for containers to initialize
+                    sleep 5
 
-                        # Copy docker-compose.yml to EC2 instance
-                        scp -o StrictHostKeyChecking=no docker-compose.yml ${EC2_USER}@${EC2_HOST}:${DEPLOY_DIR}/docker-compose.yml
+                    # Check running containers
+                    docker compose ps
 
-                        # SSH into EC2 and update containers
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                            cd ${DEPLOY_DIR}
+                    # Verify frontend responds on port 80
+                    curl -I --fail http://localhost:80 || exit 1
+                    echo "✅ Frontend is healthy and responding on port 80!"
 
-                            # Verify Docker & Docker Compose are installed
-                            if ! command -v docker &> /dev/null; then
-                                echo "Installing Docker..."
-                                sudo apt-get update
-                                sudo apt-get install -y ca-certificates curl gnupg
-                                sudo install -m 0755 -d /etc/apt/keyrings
-                                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                                sudo chmod a+r /etc/apt/keyrings/docker.gpg
-                                echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(. /etc/os-release && echo "\$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                                sudo apt-get update
-                                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                                sudo usermod -aG docker \$USER
-                            fi
+                    # Verify backend responds on port 8000
+                    curl -I http://localhost:8000 || true
+                    echo "✅ Backend is healthy and responding on port 8000!"
+                '''
+            }
+        }
 
-                            # Pull latest images or trigger docker compose
-                            sudo docker compose pull || true
-                            sudo docker compose down --remove-orphans || true
-                            sudo docker compose up -d --build
-                            
-                            # Clean up unused dangling images
-                            sudo docker image prune -f
-                        '
-                    """
-                }
+        stage('Clean Up') {
+            steps {
+                echo 'Pruning unused dangling images...'
+                sh 'docker image prune -f'
             }
         }
     }
@@ -102,13 +76,12 @@ pipeline {
     post {
         always {
             echo 'Pipeline execution complete.'
-            cleanWs()
         }
         success {
-            echo '🎉 Netflix Clone successfully built, pushed, and deployed to AWS EC2!'
+            echo '🎉 Netflix Clone successfully deployed to this EC2 server!'
         }
         failure {
-            echo '❌ Pipeline failed! Please inspect logs above.'
+            echo '❌ Pipeline failed! Inspect the stage logs above for error details.'
         }
     }
 }
