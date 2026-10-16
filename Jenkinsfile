@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     environment {
         APP_NAME    = 'netflix-clone'
         ENV_FILE    = '/var/www/netflix/.env'
@@ -42,12 +46,13 @@ pipeline {
             steps {
                 echo 'Stopping existing containers and building new version...'
                 sh '''
-                    # Force remove any stuck or previous containers immediately
+                    # Stop compose stack and force remove any existing netflix containers
+                    docker compose -p netflix-clone down --remove-orphans -t 2 2>/dev/null || true
                     docker rm -f netflix-frontend netflix-backend 2>/dev/null || true
-                    docker compose down --remove-orphans -t 2 || true
+                    docker ps -aq --filter "name=netflix-" | xargs -r docker rm -f 2>/dev/null || true
 
-                    # Build and start frontend and backend in detached mode
-                    docker compose up -d --build
+                    # Build and start frontend and backend with explicit project name and force recreation
+                    docker compose -p netflix-clone up -d --build --force-recreate
                 '''
             }
         }
@@ -60,7 +65,7 @@ pipeline {
                     sleep 5
 
                     # Check running containers
-                    docker compose ps
+                    docker compose -p netflix-clone ps
 
                     # Source .env if present for port detection
                     if [ -f .env ]; then

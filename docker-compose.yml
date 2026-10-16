@@ -1,3 +1,5 @@
+name: netflix-clone
+
 services:
   # ==========================================
   # Backend API Service (Node.js + Express)
