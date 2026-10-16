@@ -9,11 +9,12 @@ import { fetchFromTMDB } from '../services/tmdb.service.js';
 export const getTrendingTvShow = async (req, res) => {
   try {
     const data = await fetchFromTMDB('https://api.themoviedb.org/3/trending/tv/day?language=en-US');
-    const randomTvShow = data.results[Math.floor(Math.random() * data.results?.length)];
+    const shows = data?.results || [];
+    const randomTvShow = shows.length > 0 ? shows[Math.floor(Math.random() * shows.length)] : null;
 
     res.status(200).json({ success: true, content: randomTvShow });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Internal server error' + error.message });
+    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
 };
 

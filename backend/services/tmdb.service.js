@@ -1,36 +1,44 @@
 import axios from 'axios';
 import { ENV_VARS } from '../config/env.config.js';
+import { getFallbackForUrl } from './mockData.js';
 
 /**
  * Fetches data from The Movie Database (TMDB) using the provided URL and API key.
+ * If TMDB_API_KEY is not configured or if the request fails (e.g. rate limit, 401, timeout),
+ * it seamlessly returns high-quality fallback data to keep the Netflix app fully functional.
  *
  * @param {string} url - The URL to fetch data from.
- * @returns {Promise<Object>} - A promise that resolves to the fetched data.
- *
- * @throws Will throw an error if the request fails or if the response status is not 2xx.
- *
- * @example
- * const movieData = await fetchFromTMDB('https://api.themoviedb.org/3/movie/550');
- * console.log(movieData);
+ * @returns {Promise<Object>} - The fetched or fallback data.
  */
 export const fetchFromTMDB = async (url) => {
-  // 1. Set the headers for the GET request to TMDB API.
-  // Include the required 'Authorization' header with the API key.
-  const options = {
-    headers: {
-      accept: 'application/json',
-      Authorization: 'Bearer ' + ENV_VARS.TMDB_API_KEY,
-    },
-  };
+  const isKeyMissingOrPlaceholder =
+    !ENV_VARS.TMDB_API_KEY ||
+    ENV_VARS.TMDB_API_KEY === 'your_tmdb_api_key' ||
+    ENV_VARS.TMDB_API_KEY.trim() === '';
 
-  // 2. Make the GET request to the provided URL with the specified headers
-  const response = await axios.get(url, options);
-
-  // 3. Check if there was an error during the request & response status is not 2xx
-  if (response.status !== 200) {
-    throw new Error('Failed to fetch data from TMDB' + response.statusText);
+  if (isKeyMissingOrPlaceholder) {
+    return getFallbackForUrl(url);
   }
 
-  // return the fetched data as JSON object
-  return response.data;
+  try {
+    const options = {
+      headers: {
+        accept: 'application/json',
+        Authorization: 'Bearer ' + ENV_VARS.TMDB_API_KEY,
+      },
+      timeout: 5000,
+    };
+
+    const response = await axios.get(url, options);
+
+    if (response.status === 200 && response.data) {
+      return response.data;
+    }
+
+    return getFallbackForUrl(url);
+  } catch (error) {
+    console.warn(`[TMDB Service] External API call failed (${error.message}). Serving fallback catalog.`);
+    return getFallbackForUrl(url);
+  }
 };
+

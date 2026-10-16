@@ -14,12 +14,24 @@ const Category = ({ category }) => {
   const categoryTitle = `${formattedCategoryName} ${formattedContentType}`;
 
   useEffect(() => {
+    let isMounted = true;
     // Fetch content based on category and set it in the content store
     const getContent = async () => {
-      const res = await axios.get(`/api/v1/${contentType}/${category}`);
-      setContent(res.data.content);
+      try {
+        const res = await axios.get(`/api/v1/${contentType}/${category}`);
+        if (isMounted) {
+          setContent(res.data?.content || []);
+        }
+      } catch (error) {
+        console.error(`Failed to load category ${category}:`, error);
+        if (isMounted) setContent([]);
+      }
     };
     getContent();
+
+    return () => {
+      isMounted = false;
+    };
   }, [category, contentType]);
 
   return (

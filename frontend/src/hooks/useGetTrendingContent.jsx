@@ -8,13 +8,25 @@ const useGetTrendingContent = () => {
   const { contentType } = useContentStore();
 
   useEffect(() => {
+    let isMounted = true;
+
     // Fetch trending content based on the current content type
     const getTrendingContent = async () => {
-      const res = await axios.get(`/api/v1/${contentType}/trending`);
-      setTrendingContent(res.data.content);
+      try {
+        const res = await axios.get(`/api/v1/${contentType}/trending`);
+        if (isMounted && res.data?.content) {
+          setTrendingContent(res.data.content);
+        }
+      } catch (error) {
+        console.error('Failed to fetch trending content:', error);
+      }
     };
 
     getTrendingContent();
+
+    return () => {
+      isMounted = false;
+    };
   }, [contentType]);
 
   return { trendingContent };

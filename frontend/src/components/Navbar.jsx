@@ -36,7 +36,7 @@ const Navbar = () => {
         <Link to="/search">
           <Search className="size-6 cursor-pointer hover:text-gray-400" />
         </Link>
-        <img src={user.profilePic} alt="Profile pic" className="h-8 rounded cursor-pointer hover:opacity-80" />
+        <img src={user?.profilePic || '/avatar1.png'} alt="Profile pic" className="h-8 rounded cursor-pointer hover:opacity-80" />
         <LogOut className="size-6 cursor-pointer hover:text-gray-400" onClick={logout} />
         <div className="sm:hidden">
           <Menu className="size-6 cursor-pointer hover:text-gray-400" onClick={toggleMenu} />

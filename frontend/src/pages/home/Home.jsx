@@ -17,17 +17,22 @@ const Home = () => {
   // render content loading skeleton
   if (!trendingContent) return <HomeScreenSkeleton />;
 
+  const backdropUrl = trendingContent?.backdrop_path?.startsWith('http')
+    ? trendingContent.backdrop_path
+    : ORIGIN_IMG_BASE_URL + trendingContent?.backdrop_path;
+
   return (
     <>
       {/* Trending content section */}
       <div className="relative h-screen text-white">
         <Navbar />
-        {imgLoading && <HomeScreenSkeleton />}
+        {imgLoading && <div className="absolute top-0 left-0 w-full h-full bg-gray-900 -z-30 shimmer" />}
         <img
-          src={ORIGIN_IMG_BASE_URL + trendingContent?.backdrop_path}
+          src={backdropUrl}
           alt="hero image"
           className="absolute top-0 left-0 w-full h-full object-cover -z-50"
           onLoad={() => setImgLoading(false)}
+          onError={() => setImgLoading(false)}
         />
         <div className="absolute top-0 left-0 w-full h-full bg-black/50 -z-50" aria-hidden="true" />
         <div className="absolute top-0 left-0 w-full h-full flex flex-col justify-center px-8 md:px-16 lg:32">
