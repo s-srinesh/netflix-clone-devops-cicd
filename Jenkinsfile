@@ -38,6 +38,25 @@ pipeline {
                     else
                         echo "FRONTEND_PORT=80" >> .env
                     fi
+
+                    # Configure client host and URL to EC2 IP 3.25.124.113
+                    if grep -q "CLIENT_HOST=" .env; then
+                        sed -i 's/^CLIENT_HOST=.*/CLIENT_HOST=3.25.124.113/' .env
+                    else
+                        echo "CLIENT_HOST=3.25.124.113" >> .env
+                    fi
+
+                    if grep -q "CLIENT_PORT=" .env; then
+                        sed -i 's/^CLIENT_PORT=.*/CLIENT_PORT=80/' .env
+                    else
+                        echo "CLIENT_PORT=80" >> .env
+                    fi
+
+                    if grep -q "CLIENT_URL=" .env; then
+                        sed -i 's|^CLIENT_URL=.*|CLIENT_URL=http://3.25.124.113|' .env
+                    else
+                        echo "CLIENT_URL=http://3.25.124.113" >> .env
+                    fi
                 '''
             }
         }
@@ -91,7 +110,7 @@ pipeline {
             echo 'Pipeline execution complete.'
         }
         success {
-            echo '🎉 Netflix Clone successfully deployed to this EC2 server!'
+            echo '🎉 Netflix Clone successfully deployed and running at http://3.25.124.113 (Port 80)!'
         }
         failure {
             echo '❌ Pipeline failed! Inspect the stage logs above for error details.'
