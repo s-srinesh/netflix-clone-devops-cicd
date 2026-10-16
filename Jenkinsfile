@@ -35,8 +35,9 @@ pipeline {
             steps {
                 echo 'Stopping existing containers and building new version...'
                 sh '''
-                    # Stop previous containers if running
-                    docker compose down --remove-orphans || true
+                    # Force remove any stuck or previous containers immediately
+                    docker rm -f netflix-frontend netflix-backend 2>/dev/null || true
+                    docker compose down --remove-orphans -t 2 || true
 
                     # Build and start frontend and backend in detached mode
                     docker compose up -d --build

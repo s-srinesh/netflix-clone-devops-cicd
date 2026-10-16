@@ -6,41 +6,50 @@ import { ENV_VARS } from './config/env.config.js';
 import { connectDB } from './config/db.config.js';
 
 /**
- * Determines the number of available CPU cores on the system, or defaults to 3 if the number of CPUs cannot be determined.
- * This value is used to create a cluster of worker processes to run the application.
+ * Determines the number of available CPU cores on the system.
  */
-const totalCPUs = os.cpus().length;
+let totalCPUs = os.cpus().length || 2;
 
-if (!totalCPUs) {
-  totalCPUs = 3;
-}
+let isShuttingDown = false;
 
 /**
- * Creates a cluster of worker processes based on the number of available CPUs.
- * Each worker process will run the same app.js file.
+ * Primary cluster process manages worker lifecycle.
  */
 if (cluster.isPrimary) {
   console.log(`Primary Server ${process.pid} is running`);
 
-  // Fork workers.
+  // Gracefully handle termination signals from Docker (SIGTERM, SIGINT)
+  ['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) => {
+    process.on(signal, () => {
+      isShuttingDown = true;
+      console.log(`Primary received ${signal}, stopping workers cleanly...`);
+      for (const id in cluster.workers) {
+        try {
+          cluster.workers[id]?.process.kill(signal);
+        } catch (e) {}
+      }
+      setTimeout(() => process.exit(0), 1000);
+    });
+  });
+
+  // Fork worker processes
   for (let i = 0; i < totalCPUs; i++) {
     cluster.fork();
   }
 
   /**
-   * Handles the event when a worker process dies. When a worker process dies,
-   * this function will fork a new worker process to replace the dead one,
-   * maintaining the cluster of worker processes.
+   * Only restart dead workers if the server is NOT shutting down.
    */
   cluster.on('exit', (worker, code, signal) => {
-    console.log(`worker ${worker.process.pid} died`);
-    cluster.fork();
+    console.log(`Worker ${worker.process.pid} exited (code: ${code}, signal: ${signal})`);
+    if (!isShuttingDown) {
+      cluster.fork();
+    }
   });
 } else {
-  // Initialize and Configures the Express server.
+  // Worker processes run the Express application
   const app = expressServer();
 
-  // Starts the server and connects to the PostgreSQL RDS database.
   const { PORT, CLIENT_URL } = ENV_VARS;
   app.listen(PORT, () => {
     console.log(`Worker ${process.pid} is up and running on port: ${PORT}`);
