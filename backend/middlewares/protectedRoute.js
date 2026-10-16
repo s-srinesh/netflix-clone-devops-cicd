@@ -22,16 +22,16 @@ export const protectedRoute = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Unauthorized - token expired' });
     }
 
-    // If the token is valid, find user by id
-    const user = await User.findById(decoded.payload).select('-password');
+    // Find user by primary key excluding password hash
+    const user = await User.findByPk(decoded.payload, {
+      attributes: { exclude: ['password'] },
+    });
 
-    // check if user exists then attach the user to the request and call the next function
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     req.user = user;
     next();
   } catch (error) {
     console.log('An error occurred in protectedRoute middleware:', error.message);
-    // If the token verification fails, return an error response
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

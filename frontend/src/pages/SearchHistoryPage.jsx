@@ -14,7 +14,7 @@ const SearchHistoryPage = () => {
     // Fetch search history data from the backend API
     const getSearchHistory = async () => {
       try {
-        const res = await axios.get('api/v1/search/history');
+        const res = await axios.get('/api/v1/search/history');
         if (res.data) setSearchHistory(res.data.content.searchHistory);
       } catch (error) {
         setSearchHistory([]);

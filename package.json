@@ -10,7 +10,7 @@
     "format": "prettier --print-width=120 --write ."
   },
   "engines": {
-    "node": "24.x"
+    "node": ">=20.x"
   },
   "keywords": [],
   "author": "Kundan Gupta",

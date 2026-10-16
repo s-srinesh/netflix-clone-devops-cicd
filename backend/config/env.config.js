@@ -1,41 +1,50 @@
+import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
 /**
- * This function loads environment variables from a .env file located at the specified path.
- * It uses the dotenv package to achieve this.
- *
- * @param {string} options.path - The path to the .env file.
+ * Load .env file from possible locations:
+ * - Current directory .env
+ * - Parent directory ../.env
+ * - backend/.env
  */
-const filePath = process.env.NODE_ENV === 'production' ? path.resolve('.env') : path.resolve('../.env');
-dotenv.config({ path: filePath });
+const candidatePaths = [
+  path.resolve('.env'),
+  path.resolve('../.env'),
+  path.resolve('backend', '.env'),
+];
 
-/**
- * This object contains environment variables used throughout the application.
- * The values are loaded from a .env file located at the specified path using the dotenv package.
- *
- * @typedef {Object} EnvironmentVariables
- * @property {string} MONGO_URI - The MongoDB connection URI.
- * @property {number} PORT - The server port number. Default is 8000 if not specified.
- * @property {string} NODE_ENV - The environment mode. Default is 'development' if not specified.
- * @property {string} CLIENT_URL - The server connection URL.
- * @property {string} JWT_SECRET - The secret key for JSON Web Tokens.
- * @property {string} TMDB_API_KEY - The API key for The Movie Database (TMDB).
- * @property {string} MAILTRAP_TOKEN - The token for Mailtrap SMTP service.
- * @property {string} MAILTRAP_ENDPOINT - The endpoint for Mailtrap SMTP service.
- */
+let loadedPath = null;
+for (const envPath of candidatePaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    loadedPath = envPath;
+    break;
+  }
+}
+
+if (!loadedPath) {
+  dotenv.config(); // fallback to default
+}
 
 export const ENV_VARS = {
-  // APP configuration
-  MONGO_URI: process.env.MONGO_URI,
-  PORT: process.env.SERVER_PORT || 8000,
+  // Server & App configuration
+  PORT: process.env.SERVER_PORT || process.env.PORT || 8000,
   NODE_ENV: process.env.NODE_ENV || 'development',
-  CLIENT_PORT: process.env.CLIENT_PORT || 3000,
   CLIENT_HOST: process.env.CLIENT_HOST || 'localhost',
+  CLIENT_PORT: process.env.CLIENT_PORT || 5173,
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
 
+  // AWS RDS MySQL Database configuration
+  DB_HOST: process.env.DB_HOST || 'localhost',
+  DB_PORT: Number(process.env.DB_PORT) || 3306,
+  DB_USER: process.env.DB_USER || 'root',
+  DB_PASSWORD: process.env.DB_PASSWORD || '',
+  DB_NAME: process.env.DB_NAME || 'netflix_db',
+  DB_SSL: process.env.DB_SSL === 'true',
+
   // JWT configuration
-  JWT_SECRET: process.env.JWT_SECRET,
+  JWT_SECRET: process.env.JWT_SECRET || 'netflix_jwt_secret_dev_key_123',
 
   // TMDB API configuration
   TMDB_API_KEY: process.env.TMDB_API_KEY,

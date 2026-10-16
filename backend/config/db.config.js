@@ -1,54 +1,63 @@
-import mongoose from 'mongoose';
-import dns from 'dns';
+import mysql from 'mysql2/promise';
+import { Sequelize } from 'sequelize';
 import { ENV_VARS } from './env.config.js';
 import { getCurrentDateTime } from '../helpers/helper.js';
 
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+const { DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL } = ENV_VARS;
+
+const sslOptions = DB_SSL ? { rejectUnauthorized: false } : undefined;
 
 /**
- * Establishes a connection to MongoDB using the provided URI from the environment variables.
- *
- * @async
- * @function connectDB
- * @returns {Promise<void>} - Returns a Promise that resolves when the connection is established or rejects with an error.
- *
- * @throws Will throw an error if the connection fails.
- *
- * @example
- * ```javascript
- * await connectDB();
- * ```
+ * Sequelize instance for AWS RDS MySQL connection.
  */
+export const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
+  host: DB_HOST,
+  port: DB_PORT,
+  dialect: 'mysql',
+  logging: false,
+  dialectOptions: sslOptions ? { ssl: sslOptions } : {},
+  pool: {
+    max: 10,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+});
 
+/**
+ * Connects to the AWS RDS MySQL database and synchronizes all models.
+ * Automatically ensures the database schema exists on the MySQL server.
+ */
 export const connectDB = async () => {
   try {
-    await mongoose.connect(ENV_VARS.MONGO_URI);
+    // 1. Ensure target database exists on MySQL server
+    try {
+      const connection = await mysql.createConnection({
+        host: DB_HOST,
+        port: DB_PORT,
+        user: DB_USER,
+        password: DB_PASSWORD,
+        ssl: sslOptions,
+      });
+      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;`);
+      await connection.end();
+    } catch (dbInitErr) {
+      // In some managed environments (e.g. restricted RDS user), CREATE DATABASE may be restricted
+      // Proceed to authenticate directly to the existing DB
+      console.warn(`Database creation check skipped: ${dbInitErr.message}`);
+    }
+
+    // 2. Authenticate Sequelize connection
+    await sequelize.authenticate();
+    console.log(
+      `MySQL RDS connection established successfully at ${getCurrentDateTime()} (${DB_HOST}:${DB_PORT}/${DB_NAME})`
+    );
+
+    // 3. Sync all models with database schema
+    await sequelize.sync();
+    console.log('MySQL Database tables synchronized successfully.');
   } catch (error) {
-    console.error(`Error connecting to MongoDB: ${error.message}`);
-    process.exit(1); // 1 is for failure, 0 status code means success
+    console.error(`Error connecting to MySQL RDS Database: ${error.message}`);
+    throw error;
   }
 };
-
-/**
- * Listens for MongoDB connection events and logs relevant messages.
- */
-mongoose.connection.on('connected', () =>
-  console.log('Mongoose connection established successfully, ' + getCurrentDateTime())
-);
-
-mongoose.connection.on('error', (err) => console.log(err.message));
-
-mongoose.connection.on('disconnected', () => console.log('Server disconnected from database'));
-
-/**
- * Handles graceful shutdown for the server by listening for termination signals and closing the MongoDB connection.
- *
- * @param {string[]} signals - An array of termination signals to listen for.
- */
-['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) =>
-  process.on(signal, () => {
-    mongoose.connection.close();
-    console.log('Server disconnected gracefully at ' + getCurrentDateTime());
-    process.exit(0);
-  })
-);

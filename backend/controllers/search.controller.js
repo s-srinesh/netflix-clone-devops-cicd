@@ -1,37 +1,33 @@
 import { fetchFromTMDB } from '../services/tmdb.service.js';
-import User from '../models/user.model.js';
+import SearchHistory from '../models/searchHistory.model.js';
 
 /**
- * Saves search results to the user's profile in the database.
+ * Saves search results to the user's profile in MySQL database.
  *
- * @param {string} type - The type of search (e.g., 'person', 'movie', 'tv').
- * @param {string} userId - The ID of the user performing the search.
- * @param {Object} data - The search results data.
- *
- * @returns {Promise} - A promise that resolves when the search results are saved.
+ * @param {string} type - The type of search ('person', 'movie', 'tv').
+ * @param {number|string} userId - The ID of the user performing the search.
+ * @param {number|string} id - The content ID.
+ * @param {string} name - The title or actor name.
+ * @param {string} image - Poster or profile path.
  */
 async function saveSearchResults(type, userId, id, name, image) {
   try {
-    const history = await User.findById(userId).select('searchHistory');
+    const contentId = parseInt(id);
+    const existing = await SearchHistory.findOne({
+      where: { userId, contentId },
+    });
 
-    // Check if search result already exists in the user's profile
-    const hasData = history?.searchHistory.find((searchResult) => searchResult.id === id);
-    if (hasData) return;
+    if (existing) return;
 
-    // Save search result in the user's profile in the database
-    await User.findByIdAndUpdate(userId, {
-      $push: {
-        searchHistory: {
-          id: id,
-          name: name,
-          image: image,
-          searchType: type,
-          createdAt: new Date(),
-        },
-      },
+    await SearchHistory.create({
+      userId,
+      contentId,
+      name,
+      image,
+      searchType: type,
     });
   } catch (error) {
-    throw Error('An error occurred while saving search results in database:', error.message);
+    console.error('Error saving search results in database:', error.message);
   }
 }
 
@@ -40,21 +36,20 @@ export const searchPerson = async (req, res) => {
   try {
     const { query } = req.params;
     const response = await fetchFromTMDB(
-      `https://api.themoviedb.org/3/search/person?query=${query}&language=en-US&page=1`
+      `https://api.themoviedb.org/3/search/person?query=${encodeURIComponent(query)}&language=en-US&page=1`
     );
 
-    // Check if no results found in the database return empty string with no results
-    if (response.results.length == 0) return res.status(404).json({ success: false, message: 'Not Found' });
+    if (!response.results || response.results.length === 0) {
+      return res.status(404).json({ success: false, message: 'Not Found' });
+    }
 
-    // Save search results in the database
     const { id, name, profile_path } = response.results[0];
-    await saveSearchResults('person', req.user._id, id, name, profile_path);
+    await saveSearchResults('person', req.user.id, id, name, profile_path);
 
-    // Return the search results
     res.status(200).json({ success: true, content: response.results });
   } catch (error) {
-    console.error('An error occurred in serach controller:', error.message);
-    res.status(500).json({ success: false, message: 'Internal server error' + error.message });
+    console.error('An error occurred in searchPerson controller:', error.message);
+    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
 };
 
@@ -63,21 +58,20 @@ export const searchMovie = async (req, res) => {
   try {
     const { query } = req.params;
     const response = await fetchFromTMDB(
-      `https://api.themoviedb.org/3/search/movie?query=${query}&language=en-US&page=1`
+      `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`
     );
 
-    // Check if no results found in the database return empty string with no results
-    if (response.results.length == 0) return res.status(404).json({ success: false, message: 'Not Found' });
+    if (!response.results || response.results.length === 0) {
+      return res.status(404).json({ success: false, message: 'Not Found' });
+    }
 
-    // Save search results in the database
     const { id, title, poster_path } = response.results[0];
-    await saveSearchResults('movie', req.user._id, id, title, poster_path);
+    await saveSearchResults('movie', req.user.id, id, title, poster_path);
 
-    // Return the search results
     res.status(200).json({ success: true, content: response.results });
   } catch (error) {
-    console.error('An error occurred in serach controller:', error.message);
-    res.status(500).json({ success: false, message: 'Internal server error' + error.message });
+    console.error('An error occurred in searchMovie controller:', error.message);
+    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
 };
 
@@ -85,59 +79,66 @@ export const searchMovie = async (req, res) => {
 export const searchTvShow = async (req, res) => {
   try {
     const { query } = req.params;
-    const response = await fetchFromTMDB(`https://api.themoviedb.org/3/search/tv?query=${query}&language=en-US&page=1`);
+    const response = await fetchFromTMDB(
+      `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=en-US&page=1`
+    );
 
-    // Check if no results found in the database return empty string with no results
-    if (response.results.length == 0) return res.status(404).json({ success: false, message: 'Not Found' });
+    if (!response.results || response.results.length === 0) {
+      return res.status(404).json({ success: false, message: 'Not Found' });
+    }
 
-    // Save search results in the database
     const { id, name, poster_path } = response.results[0];
-    await saveSearchResults('tv', req.user._id, id, name, poster_path);
+    await saveSearchResults('tv', req.user.id, id, name, poster_path);
 
-    // Return the search results
     res.status(200).json({ success: true, content: response.results });
   } catch (error) {
-    console.error('An error occurred in serach controller:', error.message);
-    res.status(500).json({ success: false, message: 'Internal server error' + error.message });
+    console.error('An error occurred in searchTvShow controller:', error.message);
+    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
 };
 
-// Get the search history
+// Get the user's search history
 export const getSearchHistory = async (req, res) => {
   try {
-    const searchHistory = await User.findById(req.user._id).select('searchHistory');
+    const items = await SearchHistory.findAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']],
+    });
 
-    // Check if the user has no search history in the database return empty string with no results
-    if (!searchHistory) return res.status(404).json({ success: false, message: 'Not Found' });
+    const searchHistory = items.map((item) => ({
+      id: item.contentId,
+      name: item.name,
+      image: item.image,
+      searchType: item.searchType,
+      createdAt: item.createdAt,
+    }));
 
-    // Return the search history
-    res.status(200).json({ success: true, content: searchHistory });
+    res.status(200).json({
+      success: true,
+      content: { searchHistory },
+    });
   } catch (error) {
-    console.error('An error occurred in search controller:', error.message);
-    res.status(500).json({ success: false, message: 'Internal server error' + error.message });
+    console.error('An error occurred in getSearchHistory controller:', error.message);
+    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
 };
 
-// Remove a search result from the user's search history in the database
+// Remove an entry from search history
 export const removeFromSearchHistory = async (req, res) => {
   try {
     let { id } = req.params;
-    // Convert string ID to integer
-    id = parseInt(id);
+    const contentId = parseInt(id);
 
-    // Remove the search result from the user's search history in the database
-    // $pull operator removes the first document that matches the specified condition from the array field.
-    // The search result is identified by its ID.
-    await User.findByIdAndUpdate(req.user._id, {
-      $pull: {
-        searchHistory: { id: id },
+    await SearchHistory.destroy({
+      where: {
+        userId: req.user.id,
+        contentId,
       },
     });
 
-    // Return success message
     res.status(200).json({ success: true, message: 'Search result removed from history' });
   } catch (error) {
-    console.error('An error occurred in search controller:', error.message);
-    res.status(500).json({ success: false, message: 'Internal server error' + error.message });
+    console.error('An error occurred in removeFromSearchHistory controller:', error.message);
+    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
 };

@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Backend API Service (Node.js + Express)
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: netflix-backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=8000
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-netflix_db}
+      - DB_SSL=${DB_SSL:-false}
+      - JWT_SECRET=${JWT_SECRET}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
+      - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost}
+    ports:
+      - "8000:8000"
+    networks:
+      - netflix-network
+
+  # ==========================================
+  # Frontend Service (React + Vite + Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: netflix-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - netflix-network
+
+networks:
+  netflix-network:
+    driver: bridge

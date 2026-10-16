@@ -1,115 +1,115 @@
-import mongoose from 'mongoose';
+import { DataTypes } from 'sequelize';
 import bcrypt from 'bcryptjs';
+import { sequelize } from '../config/db.config.js';
 import { generateProfilePicture, hashPassword } from '../helpers/helper.js';
+import SearchHistory from './searchHistory.model.js';
 
 /**
- * Defines a new schema for a user in the application.
- *
- * @typedef {mongoose.Schema} UserSchema
- * @property {string} username - The username of the user.
- * @property {string} email - The email of the user.
- * @property {string} password - The password of the user.
- * @property {boolean} isVerified - Indicates whether the user's email is verified.
- * @property {Date} lastLogin - The date and time of the user's last login.
- * @property {string} profilePic - The URL of the user's profile picture.
- * @property {Array} searchHistory - The user's search history.
- * @property {string} resetPasswordToken - The token used for password reset.
- * @property {Date} resetPasswordExpiresAt - The expiration date of the password reset token.
- * @property {string} verificationToken - The token used for email verification.
- * @property {Date} verificationExpiresAt - The expiration date of the email verification token.
+ * Sequelize User Model for MySQL (AWS RDS).
  */
-
-const userSchema = new mongoose.Schema(
+export const User = sequelize.define(
+  'User',
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     username: {
-      type: String,
-      required: [true, 'Username is required'],
+      type: DataTypes.STRING,
+      allowNull: false,
       unique: true,
     },
     email: {
-      type: String,
-      required: [true, 'Email is required'],
+      type: DataTypes.STRING,
+      allowNull: false,
       unique: true,
-      index: { unique: true },
+      validate: {
+        isEmail: true,
+      },
     },
     password: {
-      type: String,
-      required: [true, 'Password is required'],
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     isVerified: {
-      type: Boolean,
-      default: false,
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
     lastLogin: {
-      type: Date,
-      default: Date.now,
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
     },
     profilePic: {
-      type: String,
-      default: generateProfilePicture,
+      type: DataTypes.STRING,
+      defaultValue: generateProfilePicture,
     },
-    searchHistory: {
-      type: Array,
-      default: [],
+    verificationToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
-    resetPasswordToken: String,
-    resetPasswordExpiresAt: Date,
-    verificationToken: String,
-    verificationExpiresAt: Date,
+    verificationExpiresAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    resetPasswordToken: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    resetPasswordExpiresAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
+    tableName: 'users',
     timestamps: true,
+    hooks: {
+      beforeCreate: async (user) => {
+        if (user.password) {
+          user.password = await hashPassword(user.password);
+        }
+      },
+      beforeUpdate: async (user) => {
+        if (user.changed('password')) {
+          user.password = await hashPassword(user.password);
+        }
+      },
+    },
   }
 );
 
-/**
- * Hash the password before saving it to the database using mongoose Pre-hooks.
- * This function is executed before saving a user document.
- *
- * @param {mongoose.HookNextFunction} next - The next middleware function in the stack.
- * @returns {void}
- * @throws Will throw an error if hashing the password fails.
- */
-userSchema.pre('save', async function (next) {
-  // only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
-
-  try {
-    const hashedPassword = await hashPassword(this.password);
-    // override the cleartext password with the hashed one
-    this.password = hashedPassword;
-    return next();
-  } catch (error) {
-    return next(error);
-  }
-});
+// Association with SearchHistory
+User.hasMany(SearchHistory, { foreignKey: 'userId', as: 'searchHistory', onDelete: 'CASCADE' });
+SearchHistory.belongsTo(User, { foreignKey: 'userId' });
 
 /**
- * Compares a given password with the user's hashed password.
- *
- * @function comparePassword
- * @param {string} userPassword - The password provided by the user.
- * @returns {Promise<boolean>} - A promise that resolves to a boolean indicating whether the given password matches the user's hashed password.
- * @throws Will throw an error if the comparison fails.
- *
- * @example
- * const user = new User({ username: 'johnDoe', email: 'johndoe@example.com', password: 'password123' });
- * await user.save();
- * const isMatch = await user.comparePassword('password123');
- * console.log(isMatch); // Output: true
+ * Compares plain-text password with stored hash.
  */
-userSchema.methods.comparePassword = async function comparePassword(userPassword) {
+User.prototype.comparePassword = async function (userPassword) {
   return bcrypt.compare(userPassword, this.password);
 };
 
 /**
- * Creates and exports a new Mongoose model using the provided user schema.
- *
- * @function
- * @param {mongoose.Schema} userSchema - The Mongoose schema to be used for creating the model.
- * @returns {mongoose.Model<mongoose.Document>} - The newly created Mongoose model.
- * @throws Will throw an error if the model creation fails.
+ * Compatibility getters for existing codebase references.
  */
-const User = mongoose.model('User', userSchema);
+Object.defineProperty(User.prototype, '_id', {
+  get() {
+    return this.id;
+  },
+});
+
+Object.defineProperty(User.prototype, '_doc', {
+  get() {
+    return this.toJSON();
+  },
+});
+
+/**
+ * Static finder helper compatible with legacy Mongoose findById.
+ */
+User.findById = function (id, options = {}) {
+  return User.findByPk(id, options);
+};
 
 export default User;
