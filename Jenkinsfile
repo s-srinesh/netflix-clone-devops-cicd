@@ -54,13 +54,13 @@ pipeline {
                     # Check running containers
                     docker compose ps
 
-                    # Verify frontend responds on port 80
-                    curl -I --fail http://localhost:80 || exit 1
-                    echo "✅ Frontend is healthy and responding on port 80!"
-
-                    # Verify backend responds on port 8000
-                    curl -I http://localhost:8000 || true
-                    echo "✅ Backend is healthy and responding on port 8000!"
+                    # Source .env if present for port detection
+                    if [ -f .env ]; then
+                        export $(grep -v '^#' .env | xargs) || true
+                    fi
+                    TARGET_PORT=${FRONTEND_PORT:-80}
+                    curl -I --fail http://localhost:${TARGET_PORT} || exit 1
+                    echo "✅ Frontend is healthy and responding on port ${TARGET_PORT}!"
                 '''
             }
         }
