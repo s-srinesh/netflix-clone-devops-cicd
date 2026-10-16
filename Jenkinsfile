@@ -59,7 +59,7 @@ pipeline {
                     if [ -f .env ]; then
                         export $(grep -v '^#' .env | xargs) || true
                     fi
-                    TARGET_PORT=${FRONTEND_PORT:-80}
+                    TARGET_PORT=${FRONTEND_PORT:-8081}
                     curl -I --fail http://localhost:${TARGET_PORT} || exit 1
                     echo "✅ Frontend is healthy and responding on port ${TARGET_PORT}!"
                 '''
