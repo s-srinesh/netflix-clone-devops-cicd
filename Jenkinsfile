@@ -86,6 +86,12 @@ pipeline {
                         '''
                     } else {
                         bat '''
+                            @echo off
+                            docker ps >nul 2>&1
+                            if %ERRORLEVEL% NEQ 0 (
+                                echo Testing fallback to DOCKER_HOST=tcp://localhost:2375 ...
+                                set DOCKER_HOST=tcp://localhost:2375
+                            )
                             docker compose -p netflix-clone down --remove-orphans -t 2 || echo Stack already down
                             docker compose -p netflix-clone up -d --build --force-recreate
                         '''
