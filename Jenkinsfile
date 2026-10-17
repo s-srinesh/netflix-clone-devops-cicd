@@ -58,9 +58,9 @@ pipeline {
                     def envContent = readFile('.env')
                     def updates = [
                         'FRONTEND_PORT': '80',
-                        'CLIENT_HOST'  : '13.211.103.223',
+                        'CLIENT_HOST'  : 'localhost',
                         'CLIENT_PORT'  : '80',
-                        'CLIENT_URL'   : 'http://13.211.103.223',
+                        'CLIENT_URL'   : 'http://localhost',
                         'AWS_REGION'   : 'ap-southeast-2'
                     ]
 
@@ -156,8 +156,8 @@ pipeline {
             echo 'Pipeline execution complete.'
         }
         success {
-            echo '🎉 Netflix Clone successfully deployed and running at http://13.211.103.223 (Port 80)!'
-            echo '📺 Video Uploader available at: http://13.211.103.223/upload.html or http://13.211.103.223/upload'
+            echo '🎉 Netflix Clone successfully deployed and running at http://localhost (Port 80)!'
+            echo '📺 Video Uploader available at: http://localhost/upload.html or http://localhost/upload'
         }
         failure {
             echo '❌ Pipeline failed! Inspect the stage logs above for error details.'
