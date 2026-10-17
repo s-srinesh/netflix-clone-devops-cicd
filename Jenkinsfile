@@ -114,10 +114,9 @@ pipeline {
                                 copy /Y "cloud-demo-keypair.pem" ec2_key.pem >nul
                             )
 
-                            REM 2. Reset and set strict permissions so OpenSSH permits using it
-                            icacls ec2_key.pem /reset >nul 2>&1
+                            REM 2. Remove inheritance and grant exclusive access to SYSTEM, Administrators, and Jenkins user
                             icacls ec2_key.pem /inheritance:r >nul 2>&1
-                            icacls ec2_key.pem /grant:r "%USERNAME%:(R)" >nul 2>&1
+                            icacls ec2_key.pem /grant:r SYSTEM:(F) "BUILTIN\\Administrators:(F)" "%USERNAME%:(F)" >nul 2>&1
 
                             REM 3. Deploy .env and restart containers on EC2
                             scp -i ec2_key.pem -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
