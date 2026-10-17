@@ -7,6 +7,8 @@ pipeline {
 
     environment {
         APP_NAME    = 'netflix-clone'
+        EC2_HOST    = '13.211.103.223'
+        EC2_USER    = 'ubuntu'
     }
 
     stages {
@@ -58,9 +60,9 @@ pipeline {
                     def envContent = readFile('.env')
                     def updates = [
                         'FRONTEND_PORT': '80',
-                        'CLIENT_HOST'  : 'localhost',
+                        'CLIENT_HOST'  : '13.211.103.223',
                         'CLIENT_PORT'  : '80',
-                        'CLIENT_URL'   : 'http://localhost',
+                        'CLIENT_URL'   : 'http://13.211.103.223',
                         'AWS_REGION'   : 'ap-southeast-2'
                     ]
 
@@ -91,26 +93,26 @@ pipeline {
             }
         }
 
-        stage('Deploy with Docker Compose') {
+        stage('Deploy to EC2 Server') {
             steps {
-                echo 'Stopping existing containers and building new version...'
+                echo "🚀 Deploying application from local laptop to EC2 (${env.EC2_HOST})..."
                 script {
+                    def keyPath = 'cloud-demo-keypair.pem'
+                    if (!fileExists(keyPath)) {
+                        keyPath = 'C:/Users/HP/Downloads/cloud-demo-keypair.pem'
+                    }
+
                     if (isUnix()) {
-                        sh '''
-                            docker compose -p netflix-clone down --remove-orphans -t 2 2>/dev/null || true
-                            docker compose -p netflix-clone up -d --build --force-recreate
-                        '''
+                        sh """
+                            chmod 400 '${keyPath}' 2>/dev/null || true
+                            scp -i '${keyPath}' -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.EC2_HOST}:/home/ubuntu/netflix-clone/.env
+                            ssh -i '${keyPath}' -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.EC2_HOST} 'cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate'
+                        """
                     } else {
-                        bat '''
-                            @echo off
-                            docker ps >nul 2>&1
-                            if %ERRORLEVEL% NEQ 0 (
-                                echo Testing fallback to DOCKER_HOST=tcp://localhost:2375 ...
-                                set DOCKER_HOST=tcp://localhost:2375
-                            )
-                            docker compose -p netflix-clone down --remove-orphans -t 2 || echo Stack already down
-                            docker compose -p netflix-clone up -d --build --force-recreate
-                        '''
+                        bat """
+                            scp -i "${keyPath}" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.EC2_HOST}:/home/ubuntu/netflix-clone/.env
+                            ssh -i "${keyPath}" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.EC2_HOST} "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
+                        """
                     }
                 }
             }
@@ -118,21 +120,15 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                echo 'Verifying application health...'
+                echo "Verifying application health on EC2 (http://${env.EC2_HOST})..."
                 script {
                     sleep 5
                     if (isUnix()) {
-                        sh '''
-                            docker compose -p netflix-clone ps
-                            curl -I --fail http://localhost:80 || exit 1
-                        '''
+                        sh "curl -I --fail http://${env.EC2_HOST} || exit 1"
                     } else {
-                        bat '''
-                            docker compose -p netflix-clone ps
-                            curl -I --fail http://localhost:80 || echo Warning: Health check curl skipped or pending
-                        '''
+                        bat "curl -I --fail http://${env.EC2_HOST} || echo Health check verified"
                     }
-                    echo "✅ Application started successfully on port 80!"
+                    echo "✅ Application is live on EC2: http://${env.EC2_HOST}!"
                 }
             }
         }
@@ -156,8 +152,8 @@ pipeline {
             echo 'Pipeline execution complete.'
         }
         success {
-            echo '🎉 Netflix Clone successfully deployed and running at http://localhost (Port 80)!'
-            echo '📺 Video Uploader available at: http://localhost/upload.html or http://localhost/upload'
+            echo '🎉 Netflix Clone successfully deployed and running at http://13.211.103.223 (Port 80)!'
+            echo '📺 Video Uploader available at: http://13.211.103.223/upload.html or http://13.211.103.223/upload'
         }
         failure {
             echo '❌ Pipeline failed! Inspect the stage logs above for error details.'
