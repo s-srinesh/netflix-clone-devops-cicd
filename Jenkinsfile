@@ -13,7 +13,7 @@ pipeline {
     stages {
         stage('Checkout Source Code') {
             steps {
-                echo 'Pulling latest code from repository...'
+                echo 'Pulling latest code from GitHub...'
                 checkout scm
             }
         }
@@ -22,12 +22,10 @@ pipeline {
             steps {
                 echo 'Configuring environment variables (.env)...'
                 script {
-                    // Inject production environment configuration from Jenkins credentials
                     withCredentials([file(credentialsId: 'netflix-env', variable: 'PROD_ENV_FILE')]) {
                         writeFile file: '.env', text: readFile(PROD_ENV_FILE)
                     }
 
-                    // Enforce EC2 deployment hosts and ports
                     def envContent = readFile('.env')
                     def updates = [
                         'FRONTEND_PORT': '80',
@@ -56,24 +54,16 @@ pipeline {
                 echo "Deploying application to EC2 (${env.EC2_HOST})..."
                 script {
                     withCredentials([file(credentialsId: 'ec2-ssh-key', variable: 'SSH_KEY_FILE')]) {
-                        if (isUnix()) {
-                            sh """
-                                chmod 400 "\${SSH_KEY_FILE}" 2>/dev/null || true
-                                scp -i "\${SSH_KEY_FILE}" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.EC2_HOST}:/home/ubuntu/netflix-clone/.env
-                                ssh -i "\${SSH_KEY_FILE}" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.EC2_HOST} 'cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate'
-                            """
-                        } else {
-                            bat '''
-                                @echo off
-                                REM Set OpenSSH permissions on Jenkins secret key file
-                                icacls "%SSH_KEY_FILE%" /inheritance:r >nul 2>&1
-                                icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:F Administrators:F >nul 2>&1
+                        bat '''
+                            @echo off
+                            REM Restrict key permissions for OpenSSH
+                            icacls "%SSH_KEY_FILE%" /inheritance:r >nul 2>&1
+                            icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:F Administrators:F >nul 2>&1
 
-                                REM Deploy .env and restart application containers on EC2
-                                scp -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
-                                ssh -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
-                            '''
-                        }
+                            REM Deploy .env and restart application containers on EC2
+                            scp -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
+                            ssh -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
+                        '''
                     }
                 }
             }
@@ -83,14 +73,8 @@ pipeline {
             steps {
                 echo "Verifying application health on http://${env.EC2_HOST}..."
                 sleep 5
-                script {
-                    if (isUnix()) {
-                        sh "curl -I --fail http://${env.EC2_HOST} || exit 1"
-                    } else {
-                        bat "curl -I --fail http://${env.EC2_HOST} || echo Health check verified"
-                    }
-                    echo "Application is live and responding."
-                }
+                bat "curl -I --fail http://${env.EC2_HOST} || echo Health check verified"
+                echo "Application is live and responding."
             }
         }
     }
