@@ -21,16 +21,25 @@ pipeline {
             steps {
                 echo 'Setting up environment configuration (.env)...'
                 script {
-                    // 1. Try injecting secret .env from Jenkins Credentials if configured
-                    try {
-                        withCredentials([file(credentialsId: 'netflix_env', variable: 'PROD_ENV_FILE')]) {
-                            if (PROD_ENV_FILE && fileExists(PROD_ENV_FILE)) {
-                                writeFile file: '.env', text: readFile(PROD_ENV_FILE)
-                                echo 'Loaded environment from Jenkins netflix_env credential.'
+                    // 1. Try injecting secret .env from Jenkins Credentials (netflix-env or netflix_env)
+                    def envInjected = false
+                    ['netflix-env', 'netflix_env'].each { credId ->
+                        if (!envInjected) {
+                            try {
+                                withCredentials([file(credentialsId: credId, variable: 'PROD_ENV_FILE')]) {
+                                    if (PROD_ENV_FILE && fileExists(PROD_ENV_FILE)) {
+                                        writeFile file: '.env', text: readFile(PROD_ENV_FILE)
+                                        echo "✅ Loaded environment from Jenkins credential: ${credId}"
+                                        envInjected = true
+                                    }
+                                }
+                            } catch (err) {
+                                // continue to fallback
                             }
                         }
-                    } catch (err) {
-                        echo 'netflix_env credential not found in Jenkins, using workspace .env.'
+                    }
+                    if (!envInjected) {
+                        echo 'Note: netflix-env credential not found in Jenkins, using workspace .env.'
                     }
 
                     // 2. Fallback to .env.example if .env does not exist
