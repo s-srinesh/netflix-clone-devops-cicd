@@ -24,11 +24,7 @@ pipeline {
                 script {
                     // Inject production environment configuration from Jenkins credentials
                     withCredentials([file(credentialsId: 'netflix-env', variable: 'PROD_ENV_FILE')]) {
-                        if (isUnix()) {
-                            sh "cp '${PROD_ENV_FILE}' .env"
-                        } else {
-                            bat "copy /Y \"${PROD_ENV_FILE}\" .env"
-                        }
+                        writeFile file: '.env', text: readFile(PROD_ENV_FILE)
                     }
 
                     // Enforce EC2 deployment hosts and ports
