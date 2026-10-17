@@ -11,6 +11,7 @@ import SignUp from './pages/SignUpPage';
 import ForgotPassword from './pages/ForgotPasswordPage';
 import ResetPassword from './pages/ResetPasswordPage';
 import EmailVerification from './pages/EmailVerificationPage';
+import VideoUploadPage from './pages/VideoUploadPage';
 import NotFound from './pages/NotFoundPage';
 import Footer from './components/Footer';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -33,6 +34,7 @@ function App() {
         <Route path="/search" element={user ? <Search /> : <Navigate to="/login" />} />
         <Route path="/history" element={user ? <SearchHistory /> : <Navigate to="/login" />} />
         <Route path="/watch/:id" element={user ? <Watch /> : <Navigate to="/login" />} />
+        <Route path="/upload" element={<VideoUploadPage />} />
 
         {/* public routes for the authentication or authorization page */}
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />

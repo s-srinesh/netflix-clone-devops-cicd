@@ -26,7 +26,11 @@ services:
       - TMDB_API_KEY=${TMDB_API_KEY}
       - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
       - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT}
-      - CLIENT_URL=${CLIENT_URL:-http://52.62.122.178}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
     expose:
       - "8000"
     networks:

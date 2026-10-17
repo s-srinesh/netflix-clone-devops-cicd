@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Netflix Clone - 5s Video Upload to AWS S3</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at top, #1f1f1f 0%, #000000 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .header {
+      margin-bottom: 25px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      color: #e50914;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .tagline {
+      color: #aaaaaa;
+      font-size: 14px;
+    }
+    .upload-card {
+      background: rgba(20, 20, 20, 0.95);
+      border: 1px solid #333333;
+      border-radius: 12px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+      width: 100%;
+      max-width: 520px;
+      padding: 32px;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+    h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    p.desc {
+      font-size: 14px;
+      color: #999999;
+      margin-bottom: 24px;
+    }
+    .drop-zone {
+      border: 2px dashed #444444;
+      border-radius: 10px;
+      padding: 28px 20px;
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      margin-bottom: 20px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #e50914;
+      background: rgba(229, 9, 20, 0.05);
+    }
+    .drop-zone svg {
+      width: 48px;
+      height: 48px;
+      fill: #888888;
+      margin-bottom: 12px;
+      transition: fill 0.2s;
+    }
+    .drop-zone:hover svg {
+      fill: #e50914;
+    }
+    .file-name {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #38bdf8;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .btn {
+      background-color: #e50914;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 700;
+      width: 100%;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+    .btn:hover:not(:disabled) {
+      background-color: #f40612;
+      transform: translateY(-1px);
+    }
+    .btn:disabled {
+      background-color: #555555;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .progress-bar-container {
+      display: none;
+      width: 100%;
+      background-color: #222222;
+      border-radius: 6px;
+      height: 8px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background-color: #e50914;
+      transition: width 0.3s ease;
+    }
+    .status-msg {
+      margin-top: 16px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+    .status-success { color: #4ade80; }
+    .status-error { color: #f87171; }
+    .status-info { color: #38bdf8; }
+
+    /* Video Player Section */
+    .player-section {
+      display: none;
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid #333333;
+      text-align: left;
+    }
+    .player-section h3 {
+      font-size: 16px;
+      color: #4ade80;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    video {
+      width: 100%;
+      border-radius: 8px;
+      background: #000000;
+      border: 1px solid #444444;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    .s3-url-box {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #111111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #aaaaaa;
+      word-break: break-all;
+    }
+    .s3-url-box strong {
+      color: #ffffff;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .nav-back {
+      margin-top: 20px;
+      font-size: 13px;
+    }
+    .nav-back a {
+      color: #888888;
+      text-decoration: none;
+    }
+    .nav-back a:hover {
+      color: #e50914;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">NETFLIX</div>
+    <div class="tagline">| S3 Video Uploader</div>
+  </div>
+
+  <div class="upload-card">
+    <h2>Upload 5s Video to AWS S3</h2>
+    <p class="desc">Select your 5-second video clip to upload to S3 and play instantly</p>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('videoFileInput').click()">
+      <svg viewBox="0 0 24 24">
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+      </svg>
+      <div><strong>Click to browse</strong> or drag & drop video file</div>
+      <div style="font-size: 12px; color: #777777; margin-top: 4px;">Supports MP4, WebM, MOV (up to 100MB)</div>
+      <div class="file-name" id="selectedFileName"></div>
+    </div>
+
+    <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.webm,.mkv" onchange="handleFileSelected(this)" />
+
+    <button class="btn" id="uploadBtn" onclick="uploadVideoToS3()">Upload & Stream from S3</button>
+
+    <div class="progress-bar-container" id="progressContainer">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+    <div class="status-msg" id="statusMessage"></div>
+
+    <div class="player-section" id="playerSection">
+      <h3>
+        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#4ade80;"></span>
+        Playing Live from AWS S3 Bucket
+      </h3>
+      <video id="videoPlayer" controls autoplay playsinline></video>
+      <div class="s3-url-box">
+        <strong>AWS S3 Object URL:</strong>
+        <span id="s3UrlText"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-back">
+    <a href="/">← Return to Netflix Clone Home</a>
+  </div>
+
+  <script>
+    let selectedFile = null;
+
+    function handleFileSelected(input) {
+      if (input.files && input.files[0]) {
+        selectedFile = input.files[0];
+        document.getElementById('selectedFileName').innerText = 'Selected: ' + selectedFile.name + ' (' + (selectedFile.size / (1024 * 1024)).toFixed(2) + ' MB)';
+        clearStatus();
+      }
+    }
+
+    // Drag and drop handlers
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      }, false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      }, false);
+    });
+    dropZone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        selectedFile = e.dataTransfer.files[0];
+        document.getElementById('selectedFileName').innerText = 'Selected: ' + selectedFile.name + ' (' + (selectedFile.size / (1024 * 1024)).toFixed(2) + ' MB)';
+        clearStatus();
+      }
+    });
+
+    function setStatus(text, type) {
+      const el = document.getElementById('statusMessage');
+      el.className = 'status-msg status-' + type;
+      el.innerText = text;
+    }
+
+    function clearStatus() {
+      const el = document.getElementById('statusMessage');
+      el.className = 'status-msg';
+      el.innerText = '';
+    }
+
+    function uploadVideoToS3() {
+      if (!selectedFile) {
+        setStatus('Please select a 5-second video file first.', 'error');
+        return;
+      }
+
+      const uploadBtn = document.getElementById('uploadBtn');
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('progressBar');
+      const playerSection = document.getElementById('playerSection');
+      const videoPlayer = document.getElementById('videoPlayer');
+      const s3UrlText = document.getElementById('s3UrlText');
+
+      uploadBtn.disabled = true;
+      uploadBtn.innerText = 'Uploading to S3...';
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '30%';
+      setStatus('Uploading video to AWS S3 bucket...', 'info');
+
+      const formData = new FormData();
+      formData.append('video', selectedFile);
+
+      // Determine upload API url:
+      // If served via Nginx (port 80) or Vite (port 5173), '/api/v1/upload' works via proxy.
+      // If directly accessed on port 8000, '/api/v1/upload' works directly.
+      const apiUrl = '/api/v1/upload';
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', apiUrl, true);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          progressBar.style.width = percent + '%';
+        }
+      };
+
+      xhr.onload = function () {
+        uploadBtn.disabled = false;
+        uploadBtn.innerText = 'Upload & Stream from S3';
+
+        try {
+          const response = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300 && response.success) {
+            progressBar.style.width = '100%';
+            setStatus('✅ ' + response.message, 'success');
+
+            // Set video player source to the AWS S3 URL and play
+            videoPlayer.src = response.videoUrl;
+            s3UrlText.innerText = response.videoUrl;
+            playerSection.style.display = 'block';
+            videoPlayer.play().catch(e => console.log('Auto-play note:', e));
+          } else {
+            progressBar.style.width = '0%';
+            setStatus('❌ ' + (response.message || 'Upload failed'), 'error');
+          }
+        } catch (err) {
+          setStatus('❌ Upload error: ' + xhr.responseText, 'error');
+        }
+      };
+
+      xhr.onerror = function () {
+        uploadBtn.disabled = false;
+        uploadBtn.innerText = 'Upload & Stream from S3';
+        progressBar.style.width = '0%';
+        setStatus('❌ Network error while connecting to upload service.', 'error');
+      };
+
+      xhr.send(formData);
+    }
+  </script>
+</body>
+</html>

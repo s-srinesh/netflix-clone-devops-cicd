@@ -28,6 +28,9 @@ const Navbar = () => {
           <Link to="/history" className="text-white hover:text-gray-400">
             Search History
           </Link>
+          <Link to="/upload" className="text-red-500 font-semibold hover:text-red-400">
+            Upload Video
+          </Link>
         </div>
       </div>
 
@@ -54,6 +57,9 @@ const Navbar = () => {
           </Link>
           <Link to="/history" className="block text-white hover:text-gray-400">
             Search History
+          </Link>
+          <Link to="/upload" className="block text-red-500 font-semibold hover:text-red-400">
+            Upload Video
           </Link>
         </div>
       )}

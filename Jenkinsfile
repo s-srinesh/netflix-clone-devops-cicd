@@ -19,27 +19,46 @@ pipeline {
 
         stage('Prepare Environment (.env)') {
             steps {
-                echo 'Injecting production .env securely from Jenkins Credentials...'
-                withCredentials([file(credentialsId: 'netflix_env', variable: 'PROD_ENV_FILE')]) {
+                echo 'Setting up environment configuration for local laptop deployment...'
+                script {
+                    try {
+                        withCredentials([file(credentialsId: 'netflix_env', variable: 'PROD_ENV_FILE')]) {
+                            sh '''
+                                set +x
+                                if [ -n "$PROD_ENV_FILE" ] && [ -f "$PROD_ENV_FILE" ]; then
+                                    cp "$PROD_ENV_FILE" .env
+                                fi
+                            '''
+                        }
+                    } catch (err) {
+                        echo 'netflix_env credential not found in Jenkins, using workspace .env.'
+                    }
+
                     sh '''
                         # Hide command tracing from Jenkins console output
                         set +x
 
-                        # 1. Copy encrypted secret file from Jenkins into workspace as .env
-                        cp "$PROD_ENV_FILE" .env
+                        # Ensure .env file exists
+                        if [ ! -f .env ]; then
+                            if [ -f .env.example ]; then
+                                cp .env.example .env
+                            else
+                                touch .env
+                            fi
+                        fi
 
-                        # 2. Configure frontend port to 80
+                        # Configure frontend port to 80
                         if grep -q "FRONTEND_PORT=" .env; then
                             sed -i 's/^FRONTEND_PORT=.*/FRONTEND_PORT=80/' .env
                         else
                             echo "FRONTEND_PORT=80" >> .env
                         fi
 
-                        # 3. Configure client host and URL to EC2 IP 52.62.122.178
+                        # Configure client host and URL for local machine deployment
                         if grep -q "CLIENT_HOST=" .env; then
-                            sed -i 's/^CLIENT_HOST=.*/CLIENT_HOST=52.62.122.178/' .env
+                            sed -i 's/^CLIENT_HOST=.*/CLIENT_HOST=localhost/' .env
                         else
-                            echo "CLIENT_HOST=52.62.122.178" >> .env
+                            echo "CLIENT_HOST=localhost" >> .env
                         fi
 
                         if grep -q "CLIENT_PORT=" .env; then
@@ -49,9 +68,9 @@ pipeline {
                         fi
 
                         if grep -q "CLIENT_URL=" .env; then
-                            sed -i 's|^CLIENT_URL=.*|CLIENT_URL=http://52.62.122.178|' .env
+                            sed -i 's|^CLIENT_URL=.*|CLIENT_URL=http://localhost|' .env
                         else
-                            echo "CLIENT_URL=http://52.62.122.178" >> .env
+                            echo "CLIENT_URL=http://localhost" >> .env
                         fi
                     '''
                 }
@@ -105,7 +124,8 @@ pipeline {
             echo 'Pipeline execution complete.'
         }
         success {
-            echo '🎉 Netflix Clone successfully deployed and running at http://52.62.122.178 (Port 80)!'
+            echo '🎉 Netflix Clone successfully deployed and running at http://localhost (Port 80)!'
+            echo '📺 Video Uploader available at: http://localhost/upload.html or http://localhost/upload'
         }
         failure {
             echo '❌ Pipeline failed! Inspect the stage logs above for error details.'

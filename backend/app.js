@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.route.js';
 import movieRoutes from './routes/movie.route.js';
 import tvRoutes from './routes/tv.route.js';
 import searchRoutes from './routes/search.route.js';
+import uploadRoutes from './routes/upload.route.js';
 
 /**
  * Resolves the absolute path of the current directory.
@@ -53,11 +54,16 @@ export const expressServer = () => {
    */
   app.use(cookieParser());
 
-  // Defines routes for the '/api/v1/account' , '/api/v1/movie' , '/api/v1/tv' , /api/v1/search' path.
+  // Defines routes for the '/api/v1/account' , '/api/v1/movie' , '/api/v1/tv' , /api/v1/search', '/api/v1/upload' path.
   app.use('/api/v1/account', authRoutes);
   app.use('/api/v1/movie', protectedRoute, movieRoutes);
   app.use('/api/v1/tv', protectedRoute, tvRoutes);
   app.use('/api/v1/search', protectedRoute, searchRoutes);
+  app.use('/api/v1/upload', uploadRoutes);
+
+  // Serve static assets from backend public directory (e.g. upload.html)
+  app.use(express.static(path.join(__dirname, 'backend', 'public')));
+  app.use(express.static(path.join(__dirname, 'public')));
 
   // Serves the production build of the frontend if the NODE_ENV environment variable is set to "production".
   if (ENV_VARS.NODE_ENV === 'production') {

@@ -52,4 +52,10 @@ export const ENV_VARS = {
   // Mailtrap SMTP configuration
   MAILTRAP_TOKEN: process.env.MAILTRAP_TOKEN,
   MAILTRAP_ENDPOINT: process.env.MAILTRAP_ENDPOINT,
+
+  // AWS S3 Video Storage configuration
+  AWS_REGION: process.env.AWS_REGION || 'ap-south-1',
+  AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+  AWS_BUCKET_NAME: process.env.AWS_BUCKET_NAME,
 };
