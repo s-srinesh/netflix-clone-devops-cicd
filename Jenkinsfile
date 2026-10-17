@@ -6,24 +6,24 @@ pipeline {
     }
 
     environment {
-        APP_NAME    = 'netflix-clone'
-        EC2_HOST    = '13.211.103.223'
-        EC2_USER    = 'ubuntu'
+        APP_NAME = 'netflix-clone'
+        EC2_HOST = '13.211.103.223'
+        EC2_USER = 'ubuntu'
     }
 
     stages {
         stage('Checkout Source Code') {
             steps {
-                echo 'Pulling latest code from GitHub...'
+                echo 'Pulling latest source code from repository...'
                 checkout scm
             }
         }
 
-        stage('Prepare Environment (.env)') {
+        stage('Prepare Environment') {
             steps {
-                echo 'Setting up environment configuration (.env)...'
+                echo 'Configuring deployment environment variables...'
                 script {
-                    // 1. Inject secret .env from Jenkins Credentials (netflix-env or netflix_env)
+                    // Inject secret environment configuration from Jenkins credentials
                     def envInjected = false
                     ['netflix-env', 'netflix_env'].each { credId ->
                         if (!envInjected) {
@@ -34,20 +34,16 @@ pipeline {
                                     } else {
                                         bat "copy /Y \"${PROD_ENV_FILE}\" .env"
                                     }
-                                    echo "✅ Successfully injected secret .env from Jenkins credential: ${credId}"
+                                    echo "Injected environment configuration from credential: ${credId}"
                                     envInjected = true
                                 }
                             } catch (err) {
-                                // continue to fallback
+                                // Fall through to next credential or default
                             }
                         }
                     }
 
-                    if (!envInjected) {
-                        echo '⚠️ Note: netflix-env credential not found in Jenkins, using existing workspace .env.'
-                    }
-
-                    // 2. Fallback to .env.example if .env does not exist
+                    // Fallback to template if .env does not exist
                     if (!fileExists('.env')) {
                         if (fileExists('.env.example')) {
                             writeFile file: '.env', text: readFile('.env.example')
@@ -56,7 +52,7 @@ pipeline {
                         }
                     }
 
-                    // 3. Platform-independent update of deployment environment variables
+                    // Enforce production deployment hosts and ports
                     def envContent = readFile('.env')
                     def updates = [
                         'FRONTEND_PORT': '80',
@@ -76,31 +72,28 @@ pipeline {
 
                     writeFile file: '.env', text: envContent
 
-                    // 4. Print confirmation of loaded variables without exposing secret values
-                    echo '---------------------------------------------------------'
-                    echo '🔍 Verifying Active .env configuration for containers:'
+                    // Log active configuration keys without exposing sensitive values
                     def lines = readFile('.env').readLines()
                     lines.each { line ->
                         def trimmed = line.trim()
                         if (trimmed && !trimmed.startsWith('#') && trimmed.contains('=')) {
                             def keyName = trimmed.split('=')[0].trim()
-                            echo "   [CONF] ${keyName} is SET"
+                            echo "[CONFIG] ${keyName} is configured"
                         }
                     }
-                    echo '---------------------------------------------------------'
-                    echo '✅ .env file prepared and ready for Docker Compose!'
+                    echo 'Environment configuration verified.'
                 }
             }
         }
 
         stage('Deploy to EC2 Server') {
             steps {
-                echo "🚀 Deploying application from local laptop to EC2 (${env.EC2_HOST})..."
+                echo "Deploying application to EC2 (${env.EC2_HOST})..."
                 script {
                     def keyInjected = false
                     try {
                         withCredentials([file(credentialsId: 'ec2-ssh-key', variable: 'SSH_KEY_FILE')]) {
-                            echo '🔑 Using secret EC2 SSH key from Jenkins Credential: ec2-ssh-key'
+                            echo 'Using EC2 SSH private key from Jenkins Credentials (ec2-ssh-key).'
                             if (isUnix()) {
                                 sh """
                                     chmod 400 "\${SSH_KEY_FILE}" 2>/dev/null || true
@@ -110,16 +103,16 @@ pipeline {
                             } else {
                                 bat '''
                                     @echo off
-                                    REM Clean up any stale ec2_key.pem
+                                    REM Clean up any legacy ec2_key.pem file
                                     takeown /F ec2_key.pem /A >nul 2>&1
                                     icacls ec2_key.pem /grant:r SYSTEM:F Administrators:F >nul 2>&1
                                     del /F /Q ec2_key.pem >nul 2>&1
 
-                                    REM Lock down Jenkins secret key permissions directly for OpenSSH
+                                    REM Restrict permissions on Jenkins temporary credential key for OpenSSH
                                     icacls "%SSH_KEY_FILE%" /inheritance:r >nul 2>&1
                                     icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:F Administrators:F >nul 2>&1
 
-                                    REM Deploy .env and deploy updated containers on EC2
+                                    REM Copy environment configuration and trigger container restart on EC2
                                     scp -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
                                     ssh -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
                                 '''
@@ -127,7 +120,7 @@ pipeline {
                             keyInjected = true
                         }
                     } catch (err) {
-                        echo "⚠️ ec2-ssh-key credential failed (${err.message}). Trying fallback..."
+                        echo "Credential execution failed (${err.message}), attempting local key fallback..."
                     }
 
                     if (!keyInjected) {
@@ -159,7 +152,7 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                echo "Verifying application health on EC2 (http://${env.EC2_HOST})..."
+                echo "Verifying application availability on http://${env.EC2_HOST}..."
                 script {
                     sleep 5
                     if (isUnix()) {
@@ -167,14 +160,14 @@ pipeline {
                     } else {
                         bat "curl -I --fail http://${env.EC2_HOST} || echo Health check verified"
                     }
-                    echo "✅ Application is live on EC2: http://${env.EC2_HOST}!"
+                    echo "Application is live and responding."
                 }
             }
         }
 
         stage('Clean Up') {
             steps {
-                echo 'Pruning unused dangling images...'
+                echo 'Pruning unused Docker images...'
                 script {
                     if (isUnix()) {
                         sh 'docker image prune -f || true'
@@ -188,14 +181,14 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline execution complete.'
+            echo 'Pipeline execution finished.'
         }
         success {
-            echo '🎉 Netflix Clone successfully deployed and running at http://13.211.103.223 (Port 80)!'
-            echo '📺 Video Uploader available at: http://13.211.103.223/upload.html or http://13.211.103.223/upload'
+            echo 'Deployment successful. Application live at: http://13.211.103.223'
+            echo 'Video upload service available at: http://13.211.103.223/upload.html'
         }
         failure {
-            echo '❌ Pipeline failed! Inspect the stage logs above for error details.'
+            echo 'Pipeline failed. Check stage logs for details.'
         }
     }
 }

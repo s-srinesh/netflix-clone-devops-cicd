@@ -1,15 +1,15 @@
 #!/bin/bash
 # ==============================================================================
-# AWS EC2 Quick Deployment Script for Netflix Clone (DevOps CI/CD)
+# Netflix Clone - EC2 Deployment Script
 # ==============================================================================
 
 set -e
 
-echo "🚀 Starting Netflix Clone deployment on EC2..."
+echo "Starting Netflix Clone deployment..."
 
-# 1. Update and install Docker & Docker Compose if not already present
+# 1. Install Docker and Docker Compose plugin if missing
 if ! command -v docker &> /dev/null; then
-    echo "📦 Installing Docker and Docker Compose..."
+    echo "Installing Docker..."
     sudo apt-get update -y
     sudo apt-get install -y ca-certificates curl gnupg lsb-release
     sudo mkdir -p /etc/apt/keyrings
@@ -18,31 +18,29 @@ if ! command -v docker &> /dev/null; then
     sudo apt-get update -y
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
     sudo usermod -aG docker $USER
-    echo "✅ Docker installed successfully."
+    echo "Docker installed successfully."
 fi
 
-# 2. Check for .env file
+# 2. Validate environment configuration (.env)
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
-        echo "⚠️ .env file not found. Copying from .env.example..."
+        echo "Creating .env from .env.example..."
         cp .env.example .env
-        echo "❗ Please edit .env with your AWS RDS MySQL endpoint and credentials before starting the app."
+        echo "Configure your AWS RDS PostgreSQL and S3 credentials in .env before starting."
         exit 1
     else
-        echo "❌ No .env or .env.example file found."
+        echo "Error: Neither .env nor .env.example found."
         exit 1
     fi
 fi
 
-# 3. Pull / Build & Run Docker Containers
-echo "🐳 Building and starting containers..."
+# 3. Build and launch application containers
+echo "Deploying application containers..."
 sudo docker compose down --remove-orphans || true
 sudo docker compose up -d --build
 
-# 4. Cleanup old images
+# 4. Remove dangling Docker images
 sudo docker image prune -f
 
-echo "=========================================================="
-echo "🎉 Netflix Clone is up and running!"
-echo "🌐 Access your app at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo 'localhost')"
-echo "=========================================================="
+echo "Deployment completed successfully."
+echo "Application URL: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo 'localhost')"
