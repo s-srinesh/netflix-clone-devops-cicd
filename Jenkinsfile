@@ -54,11 +54,11 @@ pipeline {
                             echo "FRONTEND_PORT=80" >> .env
                         fi
 
-                        # Configure client host and URL for local machine deployment
+                        # Configure client host and URL for EC2 deployment
                         if grep -q "CLIENT_HOST=" .env; then
-                            sed -i 's/^CLIENT_HOST=.*/CLIENT_HOST=localhost/' .env
+                            sed -i 's/^CLIENT_HOST=.*/CLIENT_HOST=13.211.103.223/' .env
                         else
-                            echo "CLIENT_HOST=localhost" >> .env
+                            echo "CLIENT_HOST=13.211.103.223" >> .env
                         fi
 
                         if grep -q "CLIENT_PORT=" .env; then
@@ -68,9 +68,9 @@ pipeline {
                         fi
 
                         if grep -q "CLIENT_URL=" .env; then
-                            sed -i 's|^CLIENT_URL=.*|CLIENT_URL=http://localhost|' .env
+                            sed -i 's|^CLIENT_URL=.*|CLIENT_URL=http://13.211.103.223|' .env
                         else
-                            echo "CLIENT_URL=http://localhost" >> .env
+                            echo "CLIENT_URL=http://13.211.103.223" >> .env
                         fi
                     '''
                 }
@@ -124,8 +124,8 @@ pipeline {
             echo 'Pipeline execution complete.'
         }
         success {
-            echo '🎉 Netflix Clone successfully deployed and running at http://localhost (Port 80)!'
-            echo '📺 Video Uploader available at: http://localhost/upload.html or http://localhost/upload'
+            echo '🎉 Netflix Clone successfully deployed and running at http://13.211.103.223 (Port 80)!'
+            echo '📺 Video Uploader available at: http://13.211.103.223/upload.html or http://13.211.103.223/upload'
         }
         failure {
             echo '❌ Pipeline failed! Inspect the stage logs above for error details.'
