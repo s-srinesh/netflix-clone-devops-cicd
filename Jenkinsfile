@@ -110,20 +110,26 @@ pipeline {
                             } else {
                                 bat '''
                                     @echo off
-                                    REM Copy credential file into workspace and lock permissions for OpenSSH
-                                    copy /Y "%SSH_KEY_FILE%" ec2_key.pem >nul
-                                    icacls ec2_key.pem /inheritance:r >nul 2>&1
-                                    icacls ec2_key.pem /grant:r SYSTEM:(F) "BUILTIN\\Administrators:(F)" "%USERNAME%:(F)" >nul 2>&1
+                                    REM Clean up any old ec2_key.pem
+                                    if exist ec2_key.pem (
+                                        takeown /F ec2_key.pem /A >nul 2>&1
+                                        icacls ec2_key.pem /grant:r SYSTEM:(F) "BUILTIN\\Administrators:(F)" >nul 2>&1
+                                        del /F /Q ec2_key.pem >nul 2>&1
+                                    )
 
-                                    REM Deploy .env and restart containers on EC2
-                                    scp -i ec2_key.pem -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
-                                    ssh -i ec2_key.pem -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
+                                    REM Lock down Jenkins secret key permissions directly for OpenSSH
+                                    icacls "%SSH_KEY_FILE%" /inheritance:r >nul 2>&1
+                                    icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:(F) "BUILTIN\\Administrators:(F)" >nul 2>&1
+
+                                    REM Deploy .env and deploy updated containers on EC2
+                                    scp -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
+                                    ssh -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
                                 '''
                             }
                             keyInjected = true
                         }
                     } catch (err) {
-                        echo "⚠️ ec2-ssh-key credential not found or failed (${err.message}). Using local key fallback..."
+                        echo "⚠️ ec2-ssh-key credential failed (${err.message}). Trying fallback..."
                     }
 
                     if (!keyInjected) {
@@ -137,16 +143,19 @@ pipeline {
                         } else {
                             bat '''
                                 @echo off
-                                if exist "C:\\Users\\HP\\Downloads\\cloud-demo-keypair.pem" (
-                                    copy /Y "C:\\Users\\HP\\Downloads\\cloud-demo-keypair.pem" ec2_key.pem >nul
-                                ) else if exist "cloud-demo-keypair.pem" (
-                                    copy /Y "cloud-demo-keypair.pem" ec2_key.pem >nul
-                                )
-                                icacls ec2_key.pem /inheritance:r >nul 2>&1
-                                icacls ec2_key.pem /grant:r SYSTEM:(F) "BUILTIN\\Administrators:(F)" "%USERNAME%:(F)" >nul 2>&1
+                                set "KEY_SRC="
+                                if exist "C:\\Users\\HP\\Downloads\\cloud-demo-keypair.pem" set "KEY_SRC=C:\\Users\\HP\\Downloads\\cloud-demo-keypair.pem"
+                                if exist "cloud-demo-keypair.pem" set "KEY_SRC=cloud-demo-keypair.pem"
 
-                                scp -i ec2_key.pem -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
-                                ssh -i ec2_key.pem -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
+                                if defined KEY_SRC (
+                                    icacls "%KEY_SRC%" /inheritance:r >nul 2>&1
+                                    icacls "%KEY_SRC%" /grant:r SYSTEM:(F) "BUILTIN\\Administrators:(F)" >nul 2>&1
+                                    scp -i "%KEY_SRC%" -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
+                                    ssh -i "%KEY_SRC%" -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
+                                ) else (
+                                    echo [ERROR] No SSH key found!
+                                    exit /b 1
+                                )
                             '''
                         }
                     }
