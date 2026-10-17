@@ -23,7 +23,7 @@ export const sequelize = new Sequelize(DB_NAME, DB_USER, String(DB_PASSWORD || '
   pool: {
     max: 10,
     min: 0,
-    acquire: 30000,
+    acquire: 8000,
     idle: 10000,
   },
 });

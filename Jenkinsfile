@@ -21,25 +21,28 @@ pipeline {
             steps {
                 echo 'Setting up environment configuration (.env)...'
                 script {
-                    // 1. Try injecting secret .env from Jenkins Credentials (netflix-env or netflix_env)
+                    // 1. Inject secret .env from Jenkins Credentials (netflix-env or netflix_env)
                     def envInjected = false
                     ['netflix-env', 'netflix_env'].each { credId ->
                         if (!envInjected) {
                             try {
                                 withCredentials([file(credentialsId: credId, variable: 'PROD_ENV_FILE')]) {
-                                    if (PROD_ENV_FILE && fileExists(PROD_ENV_FILE)) {
-                                        writeFile file: '.env', text: readFile(PROD_ENV_FILE)
-                                        echo "✅ Loaded environment from Jenkins credential: ${credId}"
-                                        envInjected = true
+                                    if (isUnix()) {
+                                        sh "cp '${PROD_ENV_FILE}' .env"
+                                    } else {
+                                        bat "copy /Y \"${PROD_ENV_FILE}\" .env"
                                     }
+                                    echo "✅ Successfully injected secret .env from Jenkins credential: ${credId}"
+                                    envInjected = true
                                 }
                             } catch (err) {
                                 // continue to fallback
                             }
                         }
                     }
+
                     if (!envInjected) {
-                        echo 'Note: netflix-env credential not found in Jenkins, using workspace .env.'
+                        echo '⚠️ Note: netflix-env credential not found in Jenkins, using existing workspace .env.'
                     }
 
                     // 2. Fallback to .env.example if .env does not exist
@@ -51,7 +54,7 @@ pipeline {
                         }
                     }
 
-                    // 3. Platform-independent update of environment variables
+                    // 3. Platform-independent update of deployment environment variables
                     def envContent = readFile('.env')
                     def updates = [
                         'FRONTEND_PORT': '80',
@@ -70,7 +73,20 @@ pipeline {
                     }
 
                     writeFile file: '.env', text: envContent
-                    echo '✅ Environment (.env) configured successfully!'
+
+                    // 4. Print confirmation of loaded variables without exposing secret values
+                    echo '---------------------------------------------------------'
+                    echo '🔍 Verifying Active .env configuration for containers:'
+                    def lines = readFile('.env').readLines()
+                    lines.each { line ->
+                        def trimmed = line.trim()
+                        if (trimmed && !trimmed.startsWith('#') && trimmed.contains('=')) {
+                            def keyName = trimmed.split('=')[0].trim()
+                            echo "   [CONF] ${keyName} is SET"
+                        }
+                    }
+                    echo '---------------------------------------------------------'
+                    echo '✅ .env file prepared and ready for Docker Compose!'
                 }
             }
         }
