@@ -97,21 +97,32 @@ pipeline {
             steps {
                 echo "🚀 Deploying application from local laptop to EC2 (${env.EC2_HOST})..."
                 script {
-                    def keyPath = fileExists('cloud-demo-keypair.pem') ? 'cloud-demo-keypair.pem' : 'C:/Users/HP/Downloads/cloud-demo-keypair.pem'
-
                     if (isUnix()) {
+                        def keyPath = fileExists('cloud-demo-keypair.pem') ? 'cloud-demo-keypair.pem' : "${HOME}/Downloads/cloud-demo-keypair.pem"
                         sh """
                             chmod 400 '${keyPath}' 2>/dev/null || true
                             scp -i '${keyPath}' -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.EC2_HOST}:/home/ubuntu/netflix-clone/.env
                             ssh -i '${keyPath}' -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.EC2_HOST} 'cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate'
                         """
                     } else {
-                        def winKey = keyPath.replace('/', '\\\\')
-                        bat """
-                            icacls "${winKey}" /inheritance:r /grant:r "%USERNAME%:(R)" "SYSTEM:(R)" >nul 2>&1
-                            scp -i "${winKey}" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.EC2_HOST}:/home/ubuntu/netflix-clone/.env
-                            ssh -i "${winKey}" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.EC2_HOST} "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
-                        """
+                        bat '''
+                            @echo off
+                            REM 1. Copy key into current Jenkins workspace so it is owned by the running Jenkins user
+                            if exist "C:\\Users\\HP\\Downloads\\cloud-demo-keypair.pem" (
+                                copy /Y "C:\\Users\\HP\\Downloads\\cloud-demo-keypair.pem" ec2_key.pem >nul
+                            ) else if exist "cloud-demo-keypair.pem" (
+                                copy /Y "cloud-demo-keypair.pem" ec2_key.pem >nul
+                            )
+
+                            REM 2. Reset and set strict permissions so OpenSSH permits using it
+                            icacls ec2_key.pem /reset >nul 2>&1
+                            icacls ec2_key.pem /inheritance:r >nul 2>&1
+                            icacls ec2_key.pem /grant:r "%USERNAME%:(R)" >nul 2>&1
+
+                            REM 3. Deploy .env and restart containers on EC2
+                            scp -i ec2_key.pem -o StrictHostKeyChecking=no .env %EC2_USER%@%EC2_HOST%:/home/ubuntu/netflix-clone/.env
+                            ssh -i ec2_key.pem -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "cd /home/ubuntu/netflix-clone && git pull origin main && sudo docker compose -p netflix-clone up -d --build --force-recreate"
+                        '''
                     }
                 }
             }
