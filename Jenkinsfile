@@ -28,11 +28,7 @@ pipeline {
                         if (!envInjected) {
                             try {
                                 withCredentials([file(credentialsId: credId, variable: 'PROD_ENV_FILE')]) {
-                                    if (isUnix()) {
-                                        sh "cp -f '${PROD_ENV_FILE}' .env"
-                                    } else {
-                                        bat "copy /Y \"${PROD_ENV_FILE}\" .env"
-                                    }
+                                    writeFile file: '.env', text: readFile(PROD_ENV_FILE)
                                     echo "Successfully injected .env from Jenkins credential: ${credId}"
                                     envInjected = true
                                 }
