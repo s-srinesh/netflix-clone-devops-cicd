@@ -307,11 +307,19 @@
 
       const xhr = new XMLHttpRequest();
       xhr.open('POST', apiUrl, true);
+      xhr.timeout = 300000;
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           const percent = Math.round((e.loaded / e.total) * 100);
+          const loadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+          const totalMB = (e.total / (1024 * 1024)).toFixed(2);
           progressBar.style.width = percent + '%';
+          if (percent < 100) {
+            setStatus('Uploading: ' + loadedMB + ' MB / ' + totalMB + ' MB (' + percent + '%)', 'info');
+          } else {
+            setStatus('Finalizing upload in AWS S3 bucket...', 'info');
+          }
         }
       };
 
