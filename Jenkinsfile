@@ -92,7 +92,7 @@ pipeline {
                                     bat """
                                         @echo off
                                         icacls "%SSH_KEY_FILE%" /inheritance:r >nul 2>&1
-                                        icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:F Administrators:F >nul 2>&1
+                                        icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:F Administrators:F "%USERNAME%":F >nul 2>&1
                                         scp -i "%SSH_KEY_FILE%" -o "ProxyCommand=ssh -i \\"%SSH_KEY_FILE%\\" -o StrictHostKeyChecking=no -W %%h:%%p ${env.EC2_USER}@${env.FRONTEND_HOST}" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.BACKEND_HOST}:/home/ubuntu/netflix-clone/.env
                                         ssh -i "%SSH_KEY_FILE%" -o "ProxyCommand=ssh -i \\"%SSH_KEY_FILE%\\" -o StrictHostKeyChecking=no -W %%h:%%p ${env.EC2_USER}@${env.FRONTEND_HOST}" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.BACKEND_HOST} "cd /home/ubuntu/netflix-clone && git fetch origin main && git reset --hard origin/main && sudo docker compose -f docker-compose.backend.yml up -d --build --force-recreate"
                                     """
@@ -110,7 +110,7 @@ pipeline {
                         bat """
                             @echo off
                             icacls "${localKey}" /inheritance:r >nul 2>&1
-                            icacls "${localKey}" /grant:r SYSTEM:F Administrators:F >nul 2>&1
+                            icacls "${localKey}" /grant:r SYSTEM:F Administrators:F "%USERNAME%":F >nul 2>&1
                             scp -i "${localKey}" -o "ProxyCommand=ssh -i \\"${localKey}\\" -o StrictHostKeyChecking=no -W %%h:%%p ${env.EC2_USER}@${env.FRONTEND_HOST}" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.BACKEND_HOST}:/home/ubuntu/netflix-clone/.env
                             ssh -i "${localKey}" -o "ProxyCommand=ssh -i \\"${localKey}\\" -o StrictHostKeyChecking=no -W %%h:%%p ${env.EC2_USER}@${env.FRONTEND_HOST}" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.BACKEND_HOST} "cd /home/ubuntu/netflix-clone && git fetch origin main && git reset --hard origin/main && sudo docker compose -f docker-compose.backend.yml up -d --build --force-recreate"
                         """
@@ -131,6 +131,8 @@ pipeline {
                                     echo "Using SSH key from Jenkins credential: ${credId}"
                                     bat """
                                         @echo off
+                                        icacls "%SSH_KEY_FILE%" /inheritance:r >nul 2>&1
+                                        icacls "%SSH_KEY_FILE%" /grant:r SYSTEM:F Administrators:F "%USERNAME%":F >nul 2>&1
                                         scp -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.FRONTEND_HOST}:/home/ubuntu/netflix-clone/.env
                                         ssh -i "%SSH_KEY_FILE%" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.FRONTEND_HOST} "cd /home/ubuntu/netflix-clone && git fetch origin main && git reset --hard origin/main && BACKEND_HOST=${env.BACKEND_HOST} sudo docker compose -f docker-compose.frontend.yml up -d --build --force-recreate"
                                     """
@@ -147,6 +149,8 @@ pipeline {
                         echo "Using workspace key file: ${localKey}"
                         bat """
                             @echo off
+                            icacls "${localKey}" /inheritance:r >nul 2>&1
+                            icacls "${localKey}" /grant:r SYSTEM:F Administrators:F "%USERNAME%":F >nul 2>&1
                             scp -i "${localKey}" -o StrictHostKeyChecking=no .env ${env.EC2_USER}@${env.FRONTEND_HOST}:/home/ubuntu/netflix-clone/.env
                             ssh -i "${localKey}" -o StrictHostKeyChecking=no ${env.EC2_USER}@${env.FRONTEND_HOST} "cd /home/ubuntu/netflix-clone && git fetch origin main && git reset --hard origin/main && BACKEND_HOST=${env.BACKEND_HOST} sudo docker compose -f docker-compose.frontend.yml up -d --build --force-recreate"
                         """
