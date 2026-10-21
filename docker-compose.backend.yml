@@ -1,0 +1,36 @@
+name: netflix-backend-tier
+
+services:
+  # ==========================================
+  # Backend API Service (Node.js + Express)
+  # Deployed on EC2 in Private Subnet
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: netflix-backend
+    restart: always
+    stop_grace_period: 3s
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=${SERVER_PORT:-8000}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-postgres}
+      - DB_SSL=${DB_SSL:-true}
+      - JWT_SECRET=${JWT_SECRET}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - MAILTRAP_TOKEN=${MAILTRAP_TOKEN}
+      - MAILTRAP_ENDPOINT=${MAILTRAP_ENDPOINT}
+      - CLIENT_URL=${CLIENT_URL:-http://3.107.19.174}
+      - AWS_REGION=${AWS_REGION:-ap-southeast-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "start": "node backend/index.js",
+    "verify:deployment": "node scripts/verify-deployment.js",
     "build": "npm install --include=dev && npm install --include=dev --prefix backend && npm install --include=dev --prefix frontend && npm run build --prefix frontend",
     "format": "prettier --print-width=120 --write ."
   },

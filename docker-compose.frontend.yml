@@ -1,0 +1,19 @@
+name: netflix-frontend-tier
+
+services:
+  # ==========================================
+  # Frontend Service (React + Vite + Nginx)
+  # Deployed on EC2 in Public Subnet
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: netflix-frontend
+    restart: always
+    stop_grace_period: 3s
+    ports:
+      - "80:80"
+    environment:
+      - BACKEND_HOST=${BACKEND_HOST:-10.0.128.135}
+      - BACKEND_PORT=${BACKEND_PORT:-8000}
